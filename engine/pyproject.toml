@@ -1,0 +1,35 @@
+[project]
+name = "a-share-panic-index"
+version = "3.0.0"
+description = "A股盘中实时与收盘正式恐慌指数"
+requires-python = ">=3.10"
+dependencies = [
+  "akshare>=1.18.0",
+  "baostock>=0.8.9",
+  "exchange-calendars>=4.5",
+  "fastapi>=0.115.0",
+  "matplotlib>=3.5.0",
+  "mootdx>=0.11.7,<0.12",
+  "numpy>=1.24.0",
+  "pandas>=2.0.0",
+  "pyyaml>=6.0",
+  "requests>=2.31.0",
+  "uvicorn>=0.30.0",
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+include = '\.pyi?$'
+extend-exclude = '''/(\n    \.git\n  | \.venv\n  | build\n  | dist\n  | data_cache\n  | docs\n)/'''
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203", "W503"]
+select = ["E", "W", "F"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: 需要真实网络的数据源集成测试",
+]

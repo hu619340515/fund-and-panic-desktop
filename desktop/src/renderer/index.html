@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>基金与恐慌指数</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <div class="brand-block"><span class="brand-mark" aria-hidden="true"></span><div><h1>市场监测台</h1><p>基金估值 · A 股恐慌指数</p></div></div>
+        <div class="header-status"><span id="global-state" class="status-chip">正在载入</span><p id="last-refresh">最后刷新：正在准备数据…</p></div>
+        <div class="header-actions">
+          <button id="add-toggle-button" class="header-button" type="button" aria-controls="quick-add" aria-expanded="false">＋ 添加基金</button>
+          <button id="refresh-button" class="header-button" type="button">↻ 全部刷新</button>
+          <button id="settings-button" class="header-icon-button" type="button" title="设置" aria-label="设置">⚙</button>
+        </div>
+      </header>
+      <main class="workspace">
+        <section class="fund-column panel">
+          <div class="section-heading"><div><p class="eyebrow">FUND WATCHLIST</p><h2>基金估值</h2></div><div class="fund-heading-tools"><div class="summary-inline" aria-label="基金概览"><span><strong id="summary-total">0</strong> 只</span><span>今日 <strong id="summary-live">0</strong></span><span>平均 <strong id="summary-average">--</strong></span></div><button id="fund-refresh-button" class="small-button" type="button">↻ 刷新基金</button></div></div>
+          <section id="quick-add" class="quick-add" hidden><form id="add-form" class="add-form"><div class="input-group"><input id="fund-code" name="fund-code" type="text" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="输入六位基金代码" aria-describedby="add-hint" /><button id="add-button" class="button button-primary" type="submit">添加</button></div><span id="add-hint">例如 110022</span></form></section>
+          <section class="list-section"><div id="fund-list" class="fund-list"></div><div id="empty-state" class="empty-state" hidden><div class="empty-icon">＋</div><h3>还没有基金</h3><p>点击顶部“添加基金”开始监测。</p></div></section>
+        </section>
+        <section class="panic-column">
+          <section class="panel panic-panel">
+            <div class="section-heading"><div><p class="eyebrow panic-eyebrow">A-SHARE RISK</p><h2>A 股恐慌指数</h2></div><div class="panic-actions"><span id="panic-engine-status" class="status-chip">引擎连接中</span><button id="panic-refresh-button" class="small-button" type="button">↻ 刷新恐慌指数</button></div></div>
+            <div id="panic-state" class="data-state" role="status">正在载入恐慌指数…</div>
+            <div class="panic-overview">
+              <article class="score-card"><span>盘中显示值</span><div class="panic-score-row"><strong id="panic-score">--</strong><em id="panic-level">暂无数据</em></div><p id="panic-time">数据时间 --</p></article>
+              <article class="score-card close-card"><span>最近收盘值</span><div class="panic-score-row"><strong id="panic-daily">--</strong><em id="panic-daily-level">暂无数据</em></div><p id="panic-daily-time">交易日 --</p></article>
+              <div class="quality-stack"><div><span>原始值</span><strong id="panic-raw">--</strong></div><div><span>置信度</span><strong id="panic-confidence">--</strong></div><div><span>覆盖率</span><strong id="panic-coverage">--</strong></div><div><span>质量</span><strong id="panic-quality">--</strong></div></div>
+            </div>
+            <div class="subsection-heading"><h3>一级组件</h3><span>0–100，越高代表压力越大</span></div><div id="panic-components" class="component-grid"></div>
+            <div class="market-grid">
+              <section class="inner-panel"><h3>市场宽度</h3><div id="breadth-details" class="metric-grid"></div></section>
+              <section class="inner-panel"><h3>衍生品</h3><div id="derivative-details" class="metric-grid"></div></section>
+              <section class="inner-panel"><h3>成交额</h3><div id="liquidity-details" class="metric-grid"></div></section>
+            </div>
+          </section>
+          <section class="chart-grid">
+            <article class="panel chart-panel"><div class="subsection-heading"><div><h3>当日盘中曲线</h3><span id="intraday-count">0 条真实记录</span></div><div class="chart-tools"><span class="legend"><i class="display-dot"></i>显示值 <i class="raw-dot"></i>原始值</span><button id="intraday-export-button" class="text-button" type="button">导出图片</button></div></div><div id="intraday-chart" class="chart-stage"></div></article>
+            <article class="panel chart-panel"><div class="subsection-heading"><div><h3>近一年收盘曲线</h3><span id="daily-count">0 条真实记录</span></div><div class="chart-tools"><span class="legend"><i class="display-dot"></i>收盘值</span><button id="daily-export-button" class="text-button" type="button">导出图片</button></div></div><div id="daily-chart" class="chart-stage"></div></article>
+          </section>
+          <section class="panel diagnostics-panel">
+            <div class="subsection-heading"><div><h3>数据源质量</h3><span id="source-summary">等待引擎报告</span></div><span id="engine-version">--</span></div><div id="source-list" class="source-list"></div>
+            <div id="panic-error" class="error-box" hidden><div><strong>恐慌指数暂时不可用</strong><p id="panic-error-text"></p></div><button id="panic-retry-button" class="small-button" type="button">重试</button></div>
+          </section>
+        </section>
+      </main>
+    </div>
+    <dialog id="settings-dialog" class="settings-dialog"><form id="settings-form" method="dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">SETTINGS</p><h2>应用设置</h2></div><button id="settings-close" class="icon-button" type="button" aria-label="关闭">×</button></div>
+      <label class="switch-row" for="auto-refresh"><span><strong>自动刷新</strong><small>按下方周期更新基金与恐慌指数</small></span><input id="auto-refresh" type="checkbox" /></label>
+      <label class="field-label" for="refresh-interval">刷新周期</label><select id="refresh-interval"><option value="30">30 秒</option><option value="60">60 秒</option><option value="120">2 分钟</option><option value="300">5 分钟</option></select>
+      <label class="switch-row" for="launch-at-login"><span><strong>开机启动</strong><small>启动后静默驻留在系统托盘</small></span><input id="launch-at-login" type="checkbox" /></label>
+      <label class="switch-row" for="always-on-top"><span><strong>窗口置顶</strong><small>保持在其他窗口上方</small></span><input id="always-on-top" type="checkbox" /></label>
+      <label class="opacity-row" for="window-opacity"><span class="opacity-heading"><strong>窗口透明度</strong><output id="window-opacity-value" for="window-opacity">94%</output></span><input id="window-opacity" type="range" min="55" max="100" step="1" value="94%" /></label>
+      <div class="dialog-actions"><button id="settings-cancel" class="button button-secondary" type="button">取消</button><button class="button button-primary" type="submit">保存设置</button></div>
+    </form></dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div><script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "fund-and-panic-desktop-workspace",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "install:desktop": "npm --prefix desktop ci",
+    "dev": "npm --prefix desktop run dev",
+    "typecheck": "npm --prefix desktop run typecheck",
+    "test": "npm --prefix desktop test",
+    "build": "npm --prefix desktop run build",
+    "build:engine": "npm --prefix desktop run build:engine",
+    "dist:win": "npm --prefix desktop run dist:win",
+    "test:e2e": "npm --prefix desktop run test:e2e"
+  }
+}

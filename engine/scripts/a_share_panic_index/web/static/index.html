@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>A股实时恐慌指数</title>
+  <style>
+    :root{color-scheme:dark;--bg:#08111f;--card:#101c2f;--line:#26364e;--muted:#8da0b8;--hot:#ff7043;--red:#ef4444;--blue:#38bdf8;--green:#34d399}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0,#152746 0,var(--bg) 42%);font-family:"Microsoft YaHei",system-ui,sans-serif;color:#eef5ff}
+    main{max-width:1280px;margin:auto;padding:28px}.top{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:22px}.eyebrow{color:var(--blue);font-size:12px;letter-spacing:.18em;text-transform:uppercase}.title{font-size:32px;font-weight:800;margin:5px 0}.notice{color:#ffbf69}.grid{display:grid;grid-template-columns:1.3fr repeat(3,1fr);gap:14px}.card{background:linear-gradient(145deg,rgba(18,33,55,.96),rgba(11,23,40,.96));border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 16px 40px rgba(0,0,0,.2)}.hero{grid-row:span 2}.score{font-size:76px;line-height:1;font-weight:900;color:var(--hot);margin:14px 0}.label{color:var(--muted);font-size:13px}.value{font-size:25px;font-weight:700;margin-top:8px}.components{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}.bar{height:7px;background:#1d2d45;border-radius:5px;overflow:hidden;margin-top:9px}.fill{height:100%;background:linear-gradient(90deg,var(--green),var(--hot),var(--red))}.wide{grid-column:1/-1}.metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}.tag{display:inline-flex;padding:5px 9px;border:1px solid #36506f;border-radius:999px;color:#b9d7f7;font-size:12px}.error{color:#fca5a5}.footer{margin-top:18px;color:var(--muted);font-size:12px}@media(max-width:900px){.grid{grid-template-columns:1fr 1fr}.hero,.wide{grid-column:1/-1}.components,.metrics{grid-template-columns:1fr 1fr}}@media(max-width:560px){main{padding:18px}.grid{grid-template-columns:1fr}.components,.metrics{grid-template-columns:1fr}.score{font-size:60px}}
+  </style>
+</head>
+<body>
+<main>
+  <div class="top"><div><div class="eyebrow">A-SHARE LIVE RISK</div><div class="title">A股实时恐慌指数</div><div class="notice">盘中实时估计，不是收盘正式值</div></div><div id="updated" class="label">等待数据</div></div>
+  <section class="grid">
+    <article class="card hero"><div class="label">实时显示值</div><div id="score" class="score">--</div><div id="level" class="value">暂无</div><p class="label">Raw <span id="raw">--</span> · 上一正式收盘 <span id="final">--</span></p><div><span id="quality" class="tag">--</span> <span id="reference" class="tag">--</span></div></article>
+    <article class="card"><div class="label">Confidence</div><div id="confidence" class="value">--</div></article>
+    <article class="card"><div class="label">Coverage</div><div id="coverage" class="value">--</div></article>
+    <article class="card"><div class="label">5 / 15 / 30分钟变化</div><div id="changes" class="value">--</div></article>
+    <article class="card wide"><div class="label">四个组件</div><div id="components" class="components"></div></article>
+    <article class="card wide"><div class="label">市场结构与衍生品</div><div id="metrics" class="metrics"></div></article>
+    <article class="card wide"><div class="label">数据源与质量提示</div><p id="sources" class="label">--</p><p id="warnings" class="error"></p></article>
+  </section>
+  <div class="footer">仅用于市场压力研究，不直接构成买卖建议。页面每60秒读取本机API。</div>
+</main>
+<script>
+const fmt=v=>v===null||v===undefined?'--':Number(v).toFixed(2);
+const money=v=>v===null||v===undefined?'--':(Number(v)/1e8).toFixed(0)+'亿';
+async function load(){try{const [r,d,h]=await Promise.all([fetch('/api/v1/realtime'),fetch('/api/v1/daily/latest'),fetch('/api/v1/realtime/history?limit=500')]);if(!r.ok)throw new Error(await r.text());const x=await r.json();const a=x.aggregate||{};const daily=d.ok?await d.json():null;const history=h.ok?await h.json():[];document.getElementById('score').textContent=fmt(x.realtime_panic_index);document.getElementById('raw').textContent=fmt(x.realtime_panic_index_raw);document.getElementById('level').textContent=x.level;document.getElementById('final').textContent=daily?fmt(daily.final_panic_index):'--';document.getElementById('confidence').textContent=fmt(x.confidence)+'%';document.getElementById('coverage').textContent=fmt(x.coverage*100)+'%';document.getElementById('quality').textContent=x.quality_status;document.getElementById('reference').textContent=x.reference_mode;document.getElementById('updated').textContent='更新 '+x.timestamp;const names={volatility:'波动与跳跃',breadth:'市场宽度',derivatives:'衍生品',liquidity:'流动性'};document.getElementById('components').innerHTML=Object.entries(x.components).map(([k,v])=>`<div><div class="label">${names[k]||k}</div><div class="value">${fmt(v)}</div><div class="bar"><div class="fill" style="width:${Math.max(0,Math.min(100,v))}%"></div></div></div>`).join('');const f=x.feature_values||{};const items=[['QVIX',a.qvix],['IF近月合约',a.front_contract],['IF近月年化基差',f.front_annualized_basis],['上涨 / 下跌',`${a.up_count??'--'} / ${a.down_count??'--'}`],['跌幅≤-5%',a.decline_5_share===undefined?null:a.decline_5_share*100],['跌幅≤-7%',a.decline_7_share===undefined?null:a.decline_7_share*100],['涨停 / 跌停',`${a.limit_up??'--'} / ${a.limit_down??'--'}`],['累计成交额',money(a.market_amount)],['预计全天成交额',money(a.projected_full_day_amount)]];document.getElementById('metrics').innerHTML=items.map(([k,v])=>`<div><div class="label">${k}</div><div class="value">${typeof v==='number'?fmt(v):v??'--'}</div></div>`).join('');const currentTime=new Date(x.timestamp).getTime();const change=minutes=>{const target=currentTime-minutes*60000;const prior=[...history].reverse().find(item=>new Date(item.timestamp).getTime()<=target);return prior?x.realtime_panic_index-prior.realtime_panic_index:null;};document.getElementById('changes').textContent=[5,15,30].map(n=>fmt(change(n))).join(' / ');const sourceMeta=a.sources||{};document.getElementById('sources').textContent=Object.entries(sourceMeta).map(([k,v])=>`${k}: ${v.provider||'--'} @ ${v.source_timestamp||'--'}`).join(' · ');document.getElementById('warnings').textContent=[...(x.stale_sources||[]),...(x.provisional_reasons||[])].join(' · ');}catch(e){document.getElementById('warnings').textContent='加载失败: '+e.message;}}
+load();setInterval(load,60000);
+</script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+model:
+  version: "3.0-realtime"
+  generalized_mean_power: 1.5
+
+component_weights:
+  volatility: 0.30
+  breadth: 0.30
+  derivatives: 0.25
+  liquidity: 0.15
+
+realtime:
+  refresh_seconds: 60
+  minimum_refresh_seconds: 30
+  bucket_minutes: 5
+
+reference:
+  self_calibration_start_days: 20
+  same_time_history_days: 60
+  mature_history_days: 120
+  proxy_history_natural_days: 180
+  maximum_historical_blend: 0.75
+  feature_historical_blend_cap: 0.50
+
+freshness:
+  index_max_age_seconds: 120
+  breadth_max_age_seconds: 180
+  limits_max_age_seconds: 180
+  futures_max_age_seconds: 120
+  qvix_max_age_seconds: 300
+  max_cross_source_skew_seconds: 120
+
+quality:
+  complete_min_coverage: 0.95
+  provisional_min_coverage: 0.80
+  qvix_missing_confidence_cap: 85
+  bootstrap_confidence_cap: 75
+  index_cross_source_tolerance: 0.003
+  futures_cross_source_tolerance: 0.005
+  qvix_cross_source_tolerance: 0.25
+
+market:
+  calendar: XSHG
+  timezone: Asia/Shanghai
+  finalization_time: "15:10"
+
+database:
+  path: ../data_cache/panic_index.db
+  backup_directory: ../data_cache/backups
+
+logging:
+  directory: ../logs
+  retention_days: 30
+  level: INFO

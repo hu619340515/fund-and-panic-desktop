@@ -1,0 +1,37 @@
+appId: com.hu619340515.fundandpanic
+productName: 基金与A股风险看板
+copyright: Copyright © 2026 hu619340515
+asar: true
+electronDist: node_modules/electron/dist
+directories:
+  output: dist
+files:
+  - out/**/*
+extraResources:
+  - from: resources
+    to: resources
+  - from: ../engine/dist/panic-engine
+    to: engine/panic-engine
+  - from: ../engine/config/settings.yaml
+    to: engine/config/settings.yaml
+win:
+  executableName: FundAndPanic
+  icon: resources/app.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+nsis:
+  artifactName: FundAndPanic-Setup-${version}-${arch}.${ext}
+  deleteAppDataOnUninstall: false
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: 基金与A股风险看板
+portable:
+  artifactName: FundAndPanic-Portable-${version}-${arch}.${ext}

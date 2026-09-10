@@ -1,0 +1,60 @@
+{
+  "providers": {
+    "index": {
+      "provider": "fixture_tencent",
+      "source_timestamp": "2026-07-24T15:00:00+08:00",
+      "data": {
+        "symbol": "sh000300",
+        "name": "沪深300",
+        "open": 4050.0,
+        "high": 4060.0,
+        "low": 3920.0,
+        "last": 3960.0,
+        "previous_close": 4100.0,
+        "volume": 520000000.0,
+        "amount": 780000000000.0
+      }
+    },
+    "breadth": {
+      "provider": "fixture_eastmoney",
+      "source_timestamp": "2026-07-24T15:00:00+08:00",
+      "data": {
+        "up_count": 850,
+        "down_count": 4050,
+        "flat_count": 100,
+        "valid_stock_count": 5000,
+        "decline_share": 0.81,
+        "decline_3_share": 0.14,
+        "decline_5_share": 0.07,
+        "decline_7_share": 0.03,
+        "median_return": -0.024,
+        "market_amount": 1180000000000.0
+      }
+    },
+    "limits": {
+      "provider": "fixture_eastmoney",
+      "source_timestamp": "2026-07-24T15:00:00+08:00",
+      "data": {"limit_up": 18, "limit_down": 96}
+    },
+    "futures": {
+      "provider": "fixture_sina_futures",
+      "source_timestamp": "2026-07-24T15:00:00+08:00",
+      "data": {
+        "contracts": [
+          {"symbol": "IF2608", "last": 3920.0, "bid": 3919.8, "ask": 3920.2, "expiry": "2026-08-21"},
+          {"symbol": "IF2609", "last": 3895.0, "bid": 3894.8, "ask": 3895.2, "expiry": "2026-09-18"}
+        ]
+      }
+    },
+    "qvix": {
+      "provider": "fixture_qvix_300_index",
+      "source_timestamp": "2026-07-24T15:00:00+08:00",
+      "data": {"symbol": "300股指QVIX", "value": 29.0, "previous_close": 24.0}
+    },
+    "daily_baseline": {
+      "provider": "fixture_sina",
+      "source_timestamp": "2026-07-23T15:00:00+08:00",
+      "data": {"daily_sigma": 0.012, "median_daily_market_amount_20": 1200000000000.0}
+    }
+  }
+}

@@ -1,0 +1,136 @@
+model:
+  version: "3.0-realtime"
+  generalized_mean_power: 1.5
+
+component_weights:
+  volatility: 0.30
+  breadth: 0.30
+  derivatives: 0.25
+  liquidity: 0.15
+
+feature_weights:
+  volatility:
+    gap_down_z: 0.15
+    decline_from_previous_close_z: 0.25
+    realized_vol_so_far_z: 0.20
+    downside_vol_so_far_z: 0.20
+    range_so_far_z: 0.10
+    down_shock_5m_z: 0.10
+  breadth:
+    decline_share: 0.25
+    severe_decline_share: 0.20
+    extreme_decline_share: 0.15
+    median_return_stress: 0.20
+    limit_down_intensity: 0.12
+    limit_imbalance: 0.08
+  derivatives:
+    if_pressure: 0.60
+    implied_volatility: 0.40
+  if_pressure:
+    front_annualized_basis: 0.55
+    next_annualized_basis: 0.20
+    basis_curve_stress: 0.15
+    basis_widening_5m: 0.10
+  implied_volatility:
+    qvix_level: 0.55
+    qvix_change_from_previous_close: 0.30
+    qvix_change_5m: 0.15
+  liquidity:
+    projected_amount_shortfall: 0.35
+    incremental_5m_illiquidity: 0.25
+    downside_turnover_shock: 0.25
+    amount_acceleration_stress: 0.15
+
+fixed_anchors:
+  decline_share: [[0.30, 10], [0.40, 25], [0.50, 45], [0.60, 60], [0.70, 75], [0.85, 92], [0.95, 99]]
+  severe_decline_share: [[0.00, 15], [0.01, 35], [0.03, 60], [0.06, 78], [0.10, 90], [0.18, 99]]
+  extreme_decline_share: [[0.00, 15], [0.005, 35], [0.015, 60], [0.04, 82], [0.08, 95], [0.15, 99]]
+  median_return_stress: [[-0.02, 5], [-0.01, 20], [0.00, 45], [0.01, 65], [0.02, 82], [0.04, 98]]
+  gap_down_z: [[0, 20], [0.25, 35], [0.5, 50], [1, 70], [2, 90], [3, 99]]
+  decline_from_previous_close_z: [[-1, 5], [0, 35], [0.5, 55], [1, 72], [2, 92], [3, 99]]
+  realized_vol_so_far_z: [[0.25, 15], [0.5, 30], [1, 50], [1.5, 72], [2.5, 92], [4, 99]]
+  downside_vol_so_far_z: [[0.10, 15], [0.35, 30], [0.75, 50], [1.25, 72], [2, 92], [3, 99]]
+  range_so_far_z: [[0.25, 15], [0.5, 30], [1, 50], [1.75, 75], [3, 95]]
+  down_shock_5m_z: [[0, 20], [0.5, 45], [1, 65], [2, 88], [3, 99]]
+  limit_down_intensity: [[0, 15], [0.2, 30], [0.5, 50], [1, 70], [2, 90], [3, 99]]
+  limit_imbalance: [[-2, 5], [-0.5, 25], [0, 45], [0.7, 65], [1.5, 85], [3, 99]]
+  front_annualized_basis: [[-0.20, 99], [-0.10, 90], [-0.05, 75], [0, 45], [0.05, 20], [0.10, 5]]
+  next_annualized_basis: [[-0.20, 99], [-0.10, 90], [-0.05, 75], [0, 45], [0.05, 20], [0.10, 5]]
+  basis_curve_stress: [[-0.10, 10], [-0.03, 30], [0, 45], [0.03, 65], [0.08, 90]]
+  basis_widening_5m: [[-0.03, 10], [-0.01, 30], [0, 45], [0.01, 65], [0.03, 90]]
+  qvix_level: [[10, 10], [15, 25], [20, 45], [25, 65], [35, 85], [50, 99]]
+  qvix_change_from_previous_close: [[-0.10, 5], [0, 35], [0.03, 55], [0.08, 75], [0.15, 95]]
+  qvix_change_5m: [[-0.05, 5], [0, 35], [0.02, 60], [0.05, 85], [0.10, 99]]
+  projected_amount_shortfall: [[-0.5, 10], [-0.2, 25], [0, 45], [0.2, 65], [0.5, 85], [1, 99]]
+  incremental_5m_illiquidity: [[0, 10], [0.001, 30], [0.003, 50], [0.008, 75], [0.02, 95]]
+  downside_turnover_shock: [[0, 20], [0.001, 40], [0.003, 60], [0.008, 82], [0.02, 99]]
+  amount_acceleration_stress: [[0, 20], [0.001, 40], [0.003, 60], [0.008, 82], [0.02, 99]]
+
+realtime:
+  refresh_seconds: 60
+  minimum_refresh_seconds: 30
+  bucket_minutes: 5
+  fast_rise_bypass_threshold: 8
+  rising_alpha: 0.65
+  falling_alpha: 0.35
+
+reference:
+  self_calibration_start_days: 20
+  same_time_history_days: 60
+  mature_history_days: 120
+  proxy_history_natural_days: 180
+  maximum_historical_blend: 0.75
+  feature_historical_blend_cap: 0.50
+
+freshness:
+  index_max_age_seconds: 120
+  breadth_max_age_seconds: 180
+  limits_max_age_seconds: 180
+  futures_max_age_seconds: 120
+  qvix_max_age_seconds: 300
+  max_cross_source_skew_seconds: 120
+
+futures:
+  minimum_days_to_expiry: 5
+  annualization_days: 365
+
+quality:
+  complete_min_coverage: 0.95
+  provisional_min_coverage: 0.80
+  qvix_missing_confidence_cap: 85
+  bootstrap_confidence_cap: 75
+  index_cross_source_tolerance: 0.003
+  futures_cross_source_tolerance: 0.005
+  qvix_cross_source_tolerance: 0.25
+
+network:
+  max_retries: 3
+  retry_delay_seconds: 2
+  provider_timeout_seconds: 20
+  total_refresh_timeout_seconds: 45
+  circuit_failure_threshold: 3
+  circuit_cooldown_seconds: 300
+
+market:
+  calendar: XSHG
+  timezone: Asia/Shanghai
+  finalization_time: "15:10"
+  index_symbol: sh000300
+  etf_symbols: [sh510300, sz159919, sh510050, sh510500]
+
+providers:
+  index: [mootdx, tencent, eastmoney, sina]
+  breadth: [eastmoney, sina, mootdx, tencent]
+  limits: [eastmoney, xuangubao, breadth_estimate]
+  futures: [sina_futures, akshare_futures]
+  qvix: [qvix_300_index, qvix_300_etf]
+  proxy_curve: [baostock, mootdx, sina, tencent, eastmoney]
+
+database:
+  path: ./data_cache/panic_index.db
+  backup_directory: ./data_cache/backups
+
+logging:
+  directory: ./logs
+  retention_days: 30
+  level: INFO
