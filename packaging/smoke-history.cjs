@@ -17,8 +17,8 @@ async function poll(operation, predicate, timeout = 90000) {
 }
 
 async function main() {
-  const executablePath = path.resolve(process.argv[2] ?? path.join(root, 'desktop/dist/FundAndPanic-Portable-2.0.2-x64.exe'))
-  const output = path.join(root, 'output/playwright/history-202')
+  const executablePath = path.resolve(process.argv[2] ?? path.join(root, 'desktop/dist/FundAndPanic-Portable-2.0.3-x64.exe'))
+  const output = path.join(root, 'output/playwright/history-203')
   await fs.mkdir(output, {recursive:true})
   const userData = await fs.mkdtemp(path.join(output, '历史验收中文用户目录-'))
   await fs.mkdir(path.join(userData, 'config'))
@@ -30,6 +30,28 @@ async function main() {
     PYTHON:'不存在的系统Python.exe', PYTHONHOME:'', PYTHONPATH:''}
   delete env.ELECTRON_RUN_AS_NODE
   const report = {startedAt:new Date().toISOString(), executablePath, userData, fixture:false, checks:[]}
+  if (process.env.PANIC_SMOKE_BASE_CACHE) {
+    const source = path.resolve(process.env.PANIC_SMOKE_BASE_CACHE)
+    const target = path.join(userData,'cache/history')
+    await fs.mkdir(target,{recursive:true})
+    for (const name of ['eastmoney-1_000300.json','eastmoney-1_000002.json','eastmoney-0_399107.json']) {
+      await fs.copyFile(path.join(source,name),path.join(target,name))
+    }
+    report.baseHistoryCache = source
+    report.checks.push('指数和成交额使用先前真实下载的原始日线缓存，不复制估计表')
+  }
+  if (process.env.PANIC_SMOKE_EXTRA_CACHE) {
+    const source = path.resolve(process.env.PANIC_SMOKE_EXTRA_CACHE)
+    const target = path.join(userData,'cache/history-extra')
+    await fs.mkdir(target,{recursive:true})
+    for (const name of await fs.readdir(source)) {
+      if (/^(cffex-\d{6}|kaipanhong-\d{4}-\d{2}-\d{2})\.json$/.test(name)) {
+        await fs.copyFile(path.join(source,name),path.join(target,name))
+      }
+    }
+    report.extraHistoryCache = source
+    report.checks.push('本轮使用先前实网取得的IF和宽度原始缓存，验证缓存重算；没有复制数据库或估计表')
+  }
   let app
   let enginePid
   let failure
@@ -43,7 +65,7 @@ async function main() {
     assert.equal(status.state, 'ready', status.error)
     const health = await (await fetch(`${status.baseUrl}/healthz`, {signal:AbortSignal.timeout(5000)})).json()
     enginePid = health.pid
-    assert.equal(health.client_version, '2.0.2')
+    assert.equal(health.client_version, '2.0.3')
     assert.equal(health.engine_version, '3.0-realtime')
     await page.locator('#history-backfill-button').waitFor({state:'attached'})
     await app.evaluate(({BrowserWindow}) => BrowserWindow.getAllWindows()[0].show())
@@ -58,6 +80,15 @@ async function main() {
     if (enginePid) assert.throws(() => process.kill(enginePid, 0), '关闭客户端后引擎仍在运行')
   }
 
+  async function showWindow() {
+    await app.evaluate(({BrowserWindow}) => {
+      const window = BrowserWindow.getAllWindows()[0]
+      if (window.isMinimized()) window.restore()
+      window.show()
+      window.focus()
+    })
+  }
+
   try {
     const first = await launch()
     const page = first.page
@@ -68,11 +99,12 @@ async function main() {
     report.checks.push('当前内置引擎、中文空目录、无系统Python、初始化历史为空')
     await page.locator('#history-backfill-button').click()
     await page.waitForFunction(() => document.querySelector('#history-backfill-button')?.textContent === '补全中…')
-    await page.waitForFunction(() => document.querySelector('#history-backfill-button')?.textContent === '补全历史', undefined, {timeout:180000})
+    await page.waitForFunction(() => document.querySelector('#history-backfill-button')?.textContent === '补全历史', undefined, {timeout:300000})
     report.history = await page.evaluate(() => window.fundApp.panic.getHistoricalEstimates())
     report.daily = await page.evaluate(() => window.fundApp.panic.getDailyHistory(500))
     report.uiStatus = await page.locator('#history-estimate-status').innerText()
     report.dailyCount = await page.locator('#daily-count').innerText()
+    await showWindow()
     await page.screenshot({path:path.join(output, 'history.png'), fullPage:true})
     const records = report.history.records
     const today = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())
@@ -85,6 +117,9 @@ async function main() {
       assert.ok(Array.isArray(record.missing_features) && record.missing_features.length > 0)
     }
     assert.deepEqual(report.daily, [], '历史估计不能写入正式收盘表')
+    assert.ok(report.history.status.source_coverage?.futures > 200, '中金所IF历史覆盖不足200天')
+    assert.ok(report.history.status.source_coverage?.breadth > 200, '开盘红宽度历史覆盖不足200天')
+    assert.ok(records.some(row => row.coverage > 0.8), '新增来源未提高估计覆盖率')
     report.range = [records[0].trade_date, records.at(-1).trade_date]
     report.coverageRange = [Math.min(...records.map(row => row.coverage)), Math.max(...records.map(row => row.coverage))]
     report.missingFeatures = [...new Set(records.flatMap(row => row.missing_features))]
@@ -100,6 +135,7 @@ async function main() {
     assert.deepEqual(report.cached.records, records, '重启读取的历史估计应与已回算记录一致')
     assert.equal(report.cached.status.updated_at, report.history.status.updated_at, '重启不得自动重新补全历史')
     await poll(() => restarted.page.locator('#daily-count').innerText(), value => value.includes(`${records.length} 条历史估计`))
+    await showWindow()
     await restarted.page.screenshot({path:path.join(output, 'history-cached.png'), fullPage:true})
     report.checks.push('重启直接读取持久化缓存，无需再次点击补全、更新时间保持一致')
   } catch (error) {

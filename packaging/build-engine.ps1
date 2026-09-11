@@ -16,13 +16,15 @@ function Get-EngineSourceHash {
     Get-Item (Join-Path $engine "requirements.txt")
     Get-ChildItem (Join-Path $engine "scripts") -Recurse -File | Where-Object { $_.Extension -in ".py", ".yaml", ".html" }
     Get-ChildItem (Join-Path $engine "config") -Recurse -File -Filter "*.yaml"
-  ) | Sort-Object { [IO.Path]::GetRelativePath($engine, $_.FullName).Replace("\", "/") }
+  )
+  # 与 Node 的默认字符串排序一致，避免系统区域设置改变下划线和点的顺序。
+  $sourcePaths = [string[]]($files | ForEach-Object { [IO.Path]::GetRelativePath($engine, $_.FullName).Replace("\", "/") })
+  [Array]::Sort($sourcePaths, [StringComparer]::Ordinal)
   $hash = [Security.Cryptography.IncrementalHash]::CreateHash([Security.Cryptography.HashAlgorithmName]::SHA256)
-  foreach ($file in $files) {
-    $relativePath = [IO.Path]::GetRelativePath($engine, $file.FullName).Replace("\", "/")
+  foreach ($relativePath in $sourcePaths) {
     $hash.AppendData([Text.Encoding]::UTF8.GetBytes($relativePath))
     $hash.AppendData([byte[]]@(0))
-    $hash.AppendData([IO.File]::ReadAllBytes($file.FullName))
+    $hash.AppendData([IO.File]::ReadAllBytes((Join-Path $engine $relativePath)))
   }
   return [Convert]::ToHexString($hash.GetHashAndReset()).ToLowerInvariant()
 }
@@ -62,7 +64,7 @@ if ($sourceHashAfter -ne $sourceHashBefore) {
 $manifest = [ordered]@{
   sourceSha256 = $sourceHashAfter
   engineVersion = "3.0-realtime"
-  clientVersion = "2.0.2"
+  clientVersion = "2.0.3"
 } | ConvertTo-Json
 $manifestPath = Join-Path $dist "panic-engine\build-manifest.json"
 [IO.File]::WriteAllText($manifestPath, $manifest + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))

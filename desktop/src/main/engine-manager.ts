@@ -95,7 +95,7 @@ export class PanicEngineManager implements PanicEngineClient {
 
   constructor(private readonly options: EngineManagerOptions) {
     this.current = { state: 'stopped', baseUrl: null, error: null, version: ENGINE_VERSION,
-      databaseVersion: null, clientVersion: options.clientVersion ?? '2.0.2',
+      databaseVersion: null, clientVersion: options.clientVersion ?? '2.0.3',
       logPath: join(options.userDataPath, 'logs', 'engine-process.log') }
   }
 
@@ -218,7 +218,7 @@ export class PanicEngineManager implements PanicEngineClient {
     const status = this.current
     if (!status.baseUrl || status.state !== 'ready') throw new Error(status.error ?? '引擎未连接')
     try {
-      return await engineRequest(`${status.baseUrl}${path}`, method, method === 'POST' ? 180000 : this.options.requestTimeoutMs ?? 10000)
+      return await engineRequest(`${status.baseUrl}${path}`, method, method === 'POST' ? (path === '/api/v1/history/refresh' ? 300000 : 180000) : this.options.requestTimeoutMs ?? 10000)
     } catch (error) {
       if (this.stopped || this.current.baseUrl !== status.baseUrl || this.current.state !== 'ready') throw error
       if (!(error instanceof EngineHttpError)) {

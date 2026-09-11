@@ -91,12 +91,14 @@ describe('panic chart and numeric display', () => {
     const view = historicalEstimateView({records:[record,
       {...record,trade_date:'2026-09-10',coverage:0.8},
       {...record,trade_date:'2020-01-01'}, {...record,finality:'final'}],
-      status:{state:'error',message:'部分日期失败',errors:['来源连接失败']}}, new Date('2026-09-10'))
+      status:{state:'error',message:'部分日期失败',errors:['来源连接失败'],source_coverage:{futures:2,breadth:1}}}, new Date('2026-09-10'))
     expect(view.points).toHaveLength(2)
     expect(view.text).toContain('60%–80%')
     expect(view.text).toContain('缺项：QVIX')
     expect(view.text).toContain('来源连接失败')
     expect(view.text).toContain('2026-09-09 至 2026-09-10')
+    expect(view.text).toContain('中金所IF 2天')
+    expect(view.text).toContain('开盘红宽度 1天')
   })
 
   it('正式与估计共享日期坐标，不合并同日值，单独估计也可绘制', () => {

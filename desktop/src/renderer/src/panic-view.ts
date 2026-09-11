@@ -207,6 +207,12 @@ export function historicalEstimateView(payload: unknown, now = new Date()) {
     : '暂无可回算历史估计，点击“补全历史”获取可用数据']
   if (coverage.length) lines.push(`覆盖率 ${(Math.min(...coverage) * 100).toFixed(0)}%–${(Math.max(...coverage) * 100).toFixed(0)}%`)
   if (missing.length) lines.push(`缺项：${missing.map(key => labels[key] ?? key).join('、')}`)
+  const sourceCoverage = asRecord(status?.source_coverage)
+  if (sourceCoverage) {
+    const sourceLabels: Record<string,string> = {index:'沪深300',market_amount:'成交额',qvix:'QVIX',futures:'中金所IF',breadth:'开盘红宽度'}
+    lines.push(`历史来源：${Object.entries(sourceLabels).map(([key,label]) => `${label} ${finiteNumber(sourceCoverage[key]) ?? 0}天`).join('；')}`)
+    lines.push('宽度采用开盘红家数口径；精确收益中位数和跌幅阈值仍保留缺项。')
+  }
   lines.push('历史估计基于可取得的历史数据回算，与完整数据生成的正式收盘分开显示。')
   if (typeof status?.message === 'string' && status.message) lines.push(status.message)
   if (status?.state === 'error') lines.push('历史补全失败，可重试；保留已成功日期。')

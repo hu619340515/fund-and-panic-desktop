@@ -10,6 +10,7 @@ from statistics import stdev
 from typing import Any
 
 from ..features.daily import build_daily_feature_values
+from ..features.derivatives import select_if_contracts, annualized_basis
 from ..providers.base import ProviderError, run_with_hard_timeout
 from .daily import DailyPipeline
 
@@ -36,6 +37,11 @@ def qvix_history_worker() -> dict[str, float]:
         for _, row in frame.iterrows()
         if row.get('close') is not None and float(row['close']) > 0
     }
+
+
+def extra_history_worker(days: list[str], as_of_text: str) -> dict:
+    from ..providers.history_extra import fetch_extra_history
+    return fetch_extra_history(days, date.fromisoformat(as_of_text))
 
 
 def estimate_records(settings, database, logger, inputs: dict, as_of: date) -> list[dict]:
@@ -74,12 +80,37 @@ def estimate_records(settings, database, logger, inputs: dict, as_of: date) -> l
                 **({'qvix': {'provider':'qvix_300_etf', 'source_timestamp':day}} if qvalue else {}),
             },
         }
-        values = build_daily_feature_values(raw, raw_history)
+        breadth = inputs.get('breadth', {}).get(day)
+        if breadth:
+            raw.update({key: breadth[key] for key in ('up_count','down_count','flat_count','valid_stock_count','limit_up','limit_down') if key in breadth})
+            raw['sources']['breadth'] = {'provider':'kaipanhong', 'source_timestamp':day,
+                'scope':'开盘红全市场家数口径；历史估计使用，未推导分桶阈值或中位数'}
+        contracts = inputs.get('futures', {}).get(day, [])
+        if contracts:
+            try:
+                front, next_contract = select_if_contracts(contracts, date.fromisoformat(day),
+                    int(settings.get('futures.minimum_days_to_expiry')))
+                for name, contract in (('front',front),('next',next_contract)):
+                    if contract:
+                        raw[f'{name}_annualized_basis'] = annualized_basis(raw['close'],contract['price'],
+                            (contract['expiry']-date.fromisoformat(day)).days, int(settings.get('futures.annualization_days')))
+                        raw[f'{name}_contract'] = contract['symbol']
+                        raw[f'{name}_price'] = contract['price']
+                        raw[f'{name}_expiry'] = contract['expiry'].isoformat()
+                if raw.get('next_annualized_basis') is not None:
+                    raw['basis_curve_stress'] = raw['front_annualized_basis'] - raw['next_annualized_basis']
+                if len(raw_history) >= 3 and raw_history[-3].get('front_annualized_basis') is not None:
+                    raw['basis_expansion_3d'] = raw['front_annualized_basis']-raw_history[-3]['front_annualized_basis']
+                raw['sources']['futures'] = {'provider':'cffex','source_timestamp':day,'unit':'index_points',
+                    'price_type':'close','contracts':[raw.get('front_contract'),raw.get('next_contract')]}
+            except ValueError:
+                pass  # 当日缺少满足既有换月规则的合约，保留缺项。
+        values = build_daily_feature_values(raw, raw_history, allow_partial_breadth=True)
         result = pipeline._score(date.fromisoformat(day), raw, values, historical_estimate=True, feature_history=score_history)
         record = result.to_dict()
         record['missing_features'] = [name for name, value in values.items() if value is None]
         record['sources'] = raw['sources']
-        record['method'] = '日线历史估计；缺少历史全市场宽度和明确IF合约时不计入，非正式收盘值'
+        record['method'] = '真实日线历史估计；宽度采用开盘红家数口径，缺少精确收益中位数与跌幅阈值不补造，非正式收盘值'
         record['raw_inputs'] = raw
         raw_history.append(raw)
         score_history.append({'feature_scores':result.feature_scores})
@@ -113,11 +144,19 @@ class HistoricalService:
                 inputs['qvix'] = run_with_hard_timeout(qvix_history_worker, (), 20)
             except ProviderError as error:
                 errors.append('QVIX历史缺失：' + str(error))
+            try:
+                extras = run_with_hard_timeout(extra_history_worker,
+                    ([str(row['date']) for row in inputs['index']], as_of.isoformat()), 115)
+                inputs.update({key:extras.get(key,{}) for key in ('futures','breadth')})
+                errors.extend(extras.get('errors',[]))
+            except ProviderError as error:
+                errors.append('IF/市场宽度历史缺失：' + str(error))
             records = estimate_records(self.settings, self.database, self.logger, inputs, as_of)
             if not records:
                 raise ProviderError('历史行情不足，无法回算；保留已有历史估计')
             status = {'state':'ready','updated_at':datetime.now().astimezone().isoformat(),'errors':errors,
-                      'message':f'已回算 {len(records)} 个交易日；历史估计与正式值分开保存'}
+                      'message':f'已回算 {len(records)} 个交易日；历史估计与正式值分开保存',
+                      'source_coverage':{name:sum(name in r['sources'] for r in records) for name in ('index','market_amount','qvix','futures','breadth')}}
             with closing(self.database.connect()) as connection:
                 with connection:
                     connection.execute('DELETE FROM historical_estimates')

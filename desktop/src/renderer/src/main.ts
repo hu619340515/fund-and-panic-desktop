@@ -554,7 +554,7 @@ function renderCharts(): void {
   intradayCount.textContent = `${intradayPoints.length} 条真实记录`
   const estimates = historicalEstimateView(estimatedHistory)
   dailyCount.textContent = `${dailyPoints.length} 条正式记录 · ${estimates.points.length} 条历史估计`
-  historyEstimateStatus.textContent = [historyBackfilling ? '正在补全历史，最多需要 3 分钟…' : '', historyRequestError, estimates.text].filter(Boolean).join('\n')
+  historyEstimateStatus.textContent = [historyBackfilling ? '正在补全历史，最多需要 5 分钟…' : '', historyRequestError, estimates.text].filter(Boolean).join('\n')
   historyBackfillButton.disabled = historyBackfilling || currentState?.engine.state !== 'ready'
   historyBackfillButton.textContent = historyBackfilling ? '补全中…' : '补全历史'
   renderChart(intradayChart, intradayPoints, true)

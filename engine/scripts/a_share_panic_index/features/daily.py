@@ -14,6 +14,8 @@ from .breadth import breadth_feature_values
 def build_daily_feature_values(
     current: dict[str, Any],
     history: list[dict[str, Any]],
+    *,
+    allow_partial_breadth: bool = False,
 ) -> dict[str, float | None]:
     rows = history + [current]
     frame = pd.DataFrame(rows)
@@ -73,6 +75,17 @@ def build_daily_feature_values(
         ))
     else:
         values.update(dict.fromkeys(("decline_share", "severe_decline_share", "extreme_decline_share", "median_return_stress", "limit_down_intensity", "limit_imbalance")))
+        # 历史来源可能仅提供家数；每个特征按真实输入独立计算。
+        valid = current.get("valid_stock_count")
+        down = current.get("down_count")
+        limit_down, limit_up = current.get("limit_down"), current.get("limit_up")
+        if allow_partial_breadth and valid is not None and valid > 0:
+            if down is not None:
+                values["decline_share"] = down / valid
+            if limit_down is not None:
+                values["limit_down_intensity"] = log(1.0 + 1000.0 * max(limit_down, 0) / valid)
+        if allow_partial_breadth and limit_down is not None and limit_up is not None:
+            values["limit_imbalance"] = log((max(limit_down, 0) + 1.0) / (max(limit_up, 0) + 1.0))
     values.update(
         {
             "front_annualized_basis": current.get("front_annualized_basis"),

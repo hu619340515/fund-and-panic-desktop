@@ -26,7 +26,7 @@ export async function fetchText(
       redirect: 'error',
       headers: {
         Accept: 'application/json,text/javascript,text/plain,*/*',
-        'User-Agent': 'FundAndPanicDesktop/2.0.2',
+        'User-Agent': 'FundAndPanicDesktop/2.0.3',
         ...options.headers
       }
     })
