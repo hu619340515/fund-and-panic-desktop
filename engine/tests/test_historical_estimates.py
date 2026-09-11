@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.a_share_panic_index.pipeline.historical import HistoricalService, estimate_records
+from scripts.a_share_panic_index.pipeline.historical import HistoricalService, estimate_records, history_inputs_worker
 from scripts.a_share_panic_index.providers.base import ProviderError
 from tests.helpers import make_database, settings, test_logger
 
@@ -65,4 +65,17 @@ class HistoricalEstimatesTest(unittest.TestCase):
         with patch('scripts.a_share_panic_index.pipeline.historical.run_with_hard_timeout',side_effect=ProviderError('网络不可用')):
             with self.assertRaises(ProviderError):
                 service.refresh(date(2026,1,1))
-        self.assertEqual(service.read(),result)
+        failed = service.read()
+        self.assertEqual(failed['records'], result['records'])
+        self.assertEqual(failed['status']['updated_at'], result['status']['updated_at'])
+        self.assertEqual(failed['status']['state'], 'error')
+        self.assertIn('网络不可用', failed['status']['message'])
+        self.assertEqual(HistoricalService(self.settings,self.database,self.logger).read(), failed)
+
+    def test_missing_market_source_reports_actual_failure(self):
+        with patch('scripts.a_share_panic_index.providers.history.fetch_index_history', return_value=inputs()['index']), patch(
+            'scripts.a_share_panic_index.providers.history.fetch_market_amount_history_result',
+            return_value={'available':False,'rows':[],'error':'上海A股: 连接被关闭'},
+        ):
+            with self.assertRaisesRegex(ProviderError, '上海A股: 连接被关闭'):
+                history_inputs_worker('2026-09-11')

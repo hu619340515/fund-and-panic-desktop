@@ -15,12 +15,17 @@ from .daily import DailyPipeline
 
 
 def history_inputs_worker(as_of_text: str) -> dict[str, Any]:
-    from ..providers.history import fetch_index_history, fetch_market_amount_history
+    from ..providers.history import fetch_index_history, fetch_market_amount_history_result
     as_of = date.fromisoformat(as_of_text)
     start = as_of - timedelta(days=500)
-    index = fetch_index_history('sh000300', start, as_of - timedelta(days=1), timeout_seconds=10)
-    amounts = fetch_market_amount_history(as_of, natural_days=500, timeout_seconds=10)
-    return {'index': index, 'amounts': amounts}
+    try:
+        index = fetch_index_history('sh000300', start, as_of - timedelta(days=1), timeout_seconds=10)
+    except ProviderError as error:
+        raise ProviderError(f'沪深300历史日线下载失败（东方财富）：{error}') from error
+    amounts = fetch_market_amount_history_result(as_of, natural_days=500, timeout_seconds=10)
+    if not amounts['available']:
+        raise ProviderError(f"沪深A股历史成交额下载失败（东方财富）：{amounts.get('error') or '没有共同交易日'}；请稍后重试")
+    return {'index': index, 'amounts': amounts['rows']}
 
 
 def qvix_history_worker() -> dict[str, float]:
@@ -119,5 +124,15 @@ class HistoricalService:
                     connection.executemany('INSERT INTO historical_estimates VALUES (?,?)', [(r['trade_date'],json.dumps(r,ensure_ascii=False,allow_nan=False)) for r in records])
                     connection.execute('INSERT OR REPLACE INTO historical_estimate_status VALUES (1,?)',(json.dumps(status,ensure_ascii=False),))
             return self.read()
+        except ProviderError as error:
+            status = self.read()['status']
+            status.update(state='error', last_attempt_at=datetime.now().astimezone().isoformat(),
+                          message=f'历史补全失败：{error}', errors=[str(error)])
+            with closing(self.database.connect()) as connection:
+                with connection:
+                    connection.execute('INSERT OR REPLACE INTO historical_estimate_status VALUES (1,?)',
+                                       (json.dumps(status, ensure_ascii=False),))
+            self.logger.warning('历史补全失败：%s', error)
+            raise
         finally:
             self.lock.release()
