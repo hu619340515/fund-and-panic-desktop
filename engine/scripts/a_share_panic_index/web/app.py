@@ -20,6 +20,7 @@ from ..chart import ChartError, generate_chart
 from ..pipeline.daily import DailyPipeline
 from ..pipeline.realtime import RealtimePipeline, PipelineError
 from ..providers.base import ProviderError
+from ..pipeline.historical import HistoricalService
 
 
 STATIC_ROOT = Path(__file__).resolve().parent / "static"
@@ -132,6 +133,7 @@ def create_app(
     ).expanduser().resolve()
     reports_directory.mkdir(parents=True, exist_ok=True)
     collector = RealtimeCollector(settings, database, logger, fixture, collector_now)
+    historical = HistoricalService(settings, database, logger)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -144,6 +146,17 @@ def create_app(
 
     app = FastAPI(title="A股实时恐慌指数", version="3.0", lifespan=lifespan)
     app.state.collector = collector
+
+    @app.get("/api/v1/history")
+    def historical_estimates() -> dict[str, Any]:
+        return historical.read()
+
+    @app.post("/api/v1/history/refresh")
+    def historical_refresh() -> dict[str, Any]:
+        try:
+            return historical.refresh(collector.current_time().date())
+        except (ProviderError, PipelineError) as error:
+            raise HTTPException(status_code=503, detail={"code":"history_failed", "message":str(error), "retry_after_seconds":60}) from error
 
     @app.post("/api/v1/realtime/refresh")
     def realtime_refresh() -> dict[str, Any]:

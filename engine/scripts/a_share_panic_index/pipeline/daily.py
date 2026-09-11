@@ -179,6 +179,9 @@ class DailyPipeline:
         trade_date: date,
         raw: dict[str, Any],
         values: dict[str, float | None],
+        *,
+        historical_estimate: bool = False,
+        feature_history: list[dict[str, Any]] | None = None,
     ) -> DailyResult:
         anchors = self.settings.section("fixed_anchors")
         annualized_baseline = max(float(raw["daily_sigma"]) * sqrt(252), 1e-9)
@@ -205,7 +208,7 @@ class DailyPipeline:
             "daily_downside_turnover": ("downside_turnover_shock", values.get("daily_downside_turnover")),
         }
         scores: dict[str, float | None] = {}
-        history = self.database.daily_feature_history(trade_date)
+        history = feature_history if feature_history is not None else self.database.daily_feature_history(trade_date)
         for name, (anchor_name, transformed) in transformations.items():
             if transformed is None:
                 scores[name] = None
@@ -251,7 +254,7 @@ class DailyPipeline:
             components,
             self.settings.section("component_weights"),
             float(self.settings.get("model.generalized_mean_power")),
-            float(self.settings.get("quality.provisional_min_coverage")),
+            0.30 if historical_estimate else float(self.settings.get("quality.provisional_min_coverage")),
         )
         component_weights = self.settings.section("component_weights")
         total_weight = 0.0
@@ -266,7 +269,7 @@ class DailyPipeline:
         missing_components = [
             name for name, value in components.items() if value is None
         ]
-        if final_score is None or component_coverage < 1.0 or missing_components:
+        if final_score is None or (not historical_estimate and (component_coverage < 1.0 or missing_components)):
             raise IncompleteDataError(
                 "收盘四个一级组件不完整: " + ", ".join(missing_components)
             )
@@ -292,8 +295,10 @@ class DailyPipeline:
             feature_scores=scores,
             confidence=confidence,
             coverage=coverage,
-            quality_status=quality,
+            quality_status="historical_estimate" if historical_estimate else quality,
             source_timestamps=source_timestamps,
+            finality="estimated" if historical_estimate else "final",
+            snapshot_type="historical_estimate" if historical_estimate else "daily",
         )
 
     def _refresh_self_curve(self) -> None:

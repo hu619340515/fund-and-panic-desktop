@@ -534,15 +534,21 @@ class Database:
         with closing(self.connect()) as connection:
             row = connection.execute(
                 """
-                SELECT * FROM intraday_aggregate_snapshots
-                WHERE trade_date=? AND timestamp=? LIMIT 1
+                SELECT snapshot.*, raw.raw_json
+                FROM intraday_aggregate_snapshots AS snapshot
+                LEFT JOIN realtime_raw_metrics AS raw
+                  ON raw.trade_date=snapshot.trade_date AND raw.timestamp=snapshot.timestamp
+                WHERE snapshot.trade_date=? AND snapshot.timestamp=? LIMIT 1
                 """,
                 (value["trade_date"], value["timestamp"]),
             ).fetchone()
         if row:
             aggregate = dict(row)
+            # V5 聚合表只保存部分字段；完整原始快照还包含 QVIX 对比值、
+            # 20 日成交额基准等。只补充同一时间记录，不借用其他采集时点。
+            raw = _load(aggregate.pop("raw_json"), {})
             aggregate["sources"] = _load(aggregate.pop("sources_json"), {})
-            value["aggregate"] = aggregate
+            value["aggregate"] = {**(raw if isinstance(raw, dict) else {}), **aggregate}
         else:
             value["aggregate"] = None
         return value

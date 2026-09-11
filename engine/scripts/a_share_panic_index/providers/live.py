@@ -24,6 +24,7 @@ from .base import (
     parse_source_time,
     shanghai_now,
 )
+from .history import fetch_market_amount_history_result
 
 
 def fetch_live(provider: str, semantic_type: str, context: dict[str, Any]) -> dict[str, Any]:
@@ -778,6 +779,7 @@ def fetch_sina_daily_baseline(context: dict[str, Any]) -> dict[str, Any]:
     requested_at = shanghai_now()
     start = time.perf_counter()
     symbol = str(context.get("symbol", "sh000300"))
+    as_of = date.fromisoformat(str(context.get("trade_date") or requested_at.date()))
     response = HttpClient(context.get("timeout", 20)).get(
         "https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData",
         params={"symbol": symbol, "scale": 240, "ma": 5, "datalen": 80},
@@ -788,12 +790,32 @@ def fetch_sina_daily_baseline(context: dict[str, Any]) -> dict[str, Any]:
     frame = pd.DataFrame(rows)
     frame["close"] = pd.to_numeric(frame["close"], errors="coerce")
     frame["day"] = pd.to_datetime(frame["day"], errors="coerce")
-    frame = frame.dropna(subset=["close", "day"]).sort_values("day")
+    frame = frame.dropna(subset=["close", "day"])
+    frame = frame[frame["day"].dt.date < as_of].sort_values("day")
+    if len(frame) < 21:
+        raise ProviderDataError("新浪已完成日线不足21条，无法计算前一日波动率")
     returns = np.log(frame["close"] / frame["close"].shift(1))
     annualized = returns.rolling(20).std(ddof=1) * sqrt(252)
-    daily_sigma = float(annualized.iloc[-2] / sqrt(252))
+    daily_sigma = float(annualized.iloc[-1] / sqrt(252))
     if not isfinite(daily_sigma) or daily_sigma <= 0:
         raise ProviderDataError("新浪日线波动率无效")
+    amount_history = fetch_market_amount_history_result(
+        as_of,
+        natural_days=90,
+        timeout_seconds=float(context.get("timeout", 20)),
+    )
+    amount_rows = amount_history.get("rows", [])
+    median_daily_market_amount_20 = None
+    amount_history_error = amount_history.get("error")
+    quality_flags: list[str] = []
+    if amount_history.get("available") and len(amount_rows) >= 20:
+        median_daily_market_amount_20 = float(
+            np.median([float(row["amount"]) for row in amount_rows[-20:]])
+        )
+    else:
+        quality_flags.append("market_amount_history_unavailable")
+        if not amount_history_error:
+            amount_history_error = f"沪深 A 股共同历史仅 {len(amount_rows)} 个交易日"
     source_timestamp = parse_source_time(
         frame.iloc[-1]["day"].date().isoformat(), requested_at
     )
@@ -802,7 +824,11 @@ def fetch_sina_daily_baseline(context: dict[str, Any]) -> dict[str, Any]:
         "daily_baseline",
         {
             "daily_sigma": daily_sigma,
-            "median_daily_market_amount_20": None,
+            "median_daily_market_amount_20": median_daily_market_amount_20,
+            "market_amount_history_provider": "eastmoney_full_a_share_indices",
+            "market_amount_history_unit": amount_history.get("amount_unit", "CNY"),
+            "market_amount_history_latest_date": amount_history.get("latest_date"),
+            "market_amount_history_error": amount_history_error,
             "earliest_timestamp": frame.iloc[0]["day"].isoformat(),
             "latest_timestamp": frame.iloc[-1]["day"].isoformat(),
             "returned_rows": len(frame),
@@ -810,6 +836,8 @@ def fetch_sina_daily_baseline(context: dict[str, Any]) -> dict[str, Any]:
         requested_at,
         source_timestamp,
         start,
+        provisional=median_daily_market_amount_20 is None,
+        quality_flags=quality_flags,
     )
 
 

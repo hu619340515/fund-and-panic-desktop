@@ -95,7 +95,7 @@ export class PanicEngineManager implements PanicEngineClient {
 
   constructor(private readonly options: EngineManagerOptions) {
     this.current = { state: 'stopped', baseUrl: null, error: null, version: ENGINE_VERSION,
-      databaseVersion: null, clientVersion: options.clientVersion ?? '2.0.1',
+      databaseVersion: null, clientVersion: options.clientVersion ?? '2.0.2',
       logPath: join(options.userDataPath, 'logs', 'engine-process.log') }
   }
 

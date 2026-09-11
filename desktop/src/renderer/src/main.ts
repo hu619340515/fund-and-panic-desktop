@@ -7,6 +7,8 @@ import {
   finiteNumber,
   formatCompactMoney,
   historyPoints,
+  historicalChartSeries,
+  historicalEstimateView,
   marketDate,
   panicUiState,
   type PanicPoint,
@@ -70,6 +72,8 @@ const intradayChart = element<HTMLDivElement>('intraday-chart')
 const dailyChart = element<HTMLDivElement>('daily-chart')
 const intradayCount = element<HTMLElement>('intraday-count')
 const dailyCount = element<HTMLElement>('daily-count')
+const historyEstimateStatus = element<HTMLElement>('history-estimate-status')
+const historyBackfillButton = element<HTMLButtonElement>('history-backfill-button')
 const sourceSummary = element<HTMLElement>('source-summary')
 const sourceList = element<HTMLDivElement>('source-list')
 const engineVersion = element<HTMLElement>('engine-version')
@@ -84,6 +88,9 @@ let toastTimer: number | null = null
 let panicDetailRequest: Promise<void> | null = null
 let intradayPoints: PanicPoint[] = []
 let dailyPoints: PanicPoint[] = []
+let estimatedHistory: unknown = null
+let historyBackfilling = false
+let historyRequestError = ''
 let sourceData: UnknownRecord | null = null
 const expandedFunds = new Set<string>()
 
@@ -479,9 +486,9 @@ function renderSources(realtime: UnknownRecord | null): void {
     : `${sourceCards.length} 项来源记录${warningCount ? ` · ${warningCount} 项需关注` : ' · 状态正常'}`
 }
 
-function renderChart(target: HTMLDivElement, points: PanicPoint[], includeRaw: boolean): void {
+function renderChart(target: HTMLDivElement, points: PanicPoint[], includeRaw: boolean, estimates?: PanicPoint[]): void {
   target.replaceChildren()
-  if (points.length === 0) {
+  if (points.length === 0 && !estimates?.length) {
     const empty = document.createElement('div')
     empty.className = 'chart-empty'
     empty.textContent = '暂无真实历史记录'
@@ -489,10 +496,11 @@ function renderChart(target: HTMLDivElement, points: PanicPoint[], includeRaw: b
     return
   }
   const geometry = chartPaths(points, 640, 180, 24)
+  const historical = estimates ? historicalChartSeries(points, estimates) : null
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
   svg.setAttribute('viewBox', '0 0 640 180')
   svg.setAttribute('role', 'img')
-  svg.setAttribute('aria-label', `包含 ${points.length} 条真实记录的曲线`)
+  svg.setAttribute('aria-label', estimates ? `包含 ${points.length} 条正式记录、${estimates.length} 条历史估计的曲线` : `包含 ${points.length} 条真实记录的曲线`)
   for (const ratio of [0, 0.5, 1]) {
     const y = 24 + ratio * 132
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
@@ -510,24 +518,47 @@ function renderChart(target: HTMLDivElement, points: PanicPoint[], includeRaw: b
     svg.append(raw)
   }
   const display = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-  display.setAttribute('d', geometry.display)
+  display.setAttribute('d', historical?.display ?? geometry.display)
   display.setAttribute('class', 'chart-line chart-line-display')
   svg.append(display)
+  if (historical) {
+    const estimatedLine = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    estimatedLine.setAttribute('d', historical.estimate)
+    estimatedLine.setAttribute('class', 'chart-line chart-line-estimate')
+    svg.append(estimatedLine)
+    for (const [values, label, color] of [
+      [historical.estimatedPoints, '历史估计', '#46cfb5'],
+      [historical.formalPoints, '正式收盘', '#7689ff']
+    ] as const) {
+      for (const point of values) {
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+        dot.setAttribute('cx', String(point.x)); dot.setAttribute('cy', String(point.y))
+        dot.setAttribute('r', label === '正式收盘' ? '3' : '1.8'); dot.setAttribute('fill', color)
+        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title')
+        title.textContent = `${point.time} ${label} ${point.value.toFixed(2)}`
+        dot.append(title); svg.append(dot)
+      }
+    }
+  }
   const labels = document.createElement('div')
   labels.className = 'chart-labels'
   labels.append(
-    Object.assign(document.createElement('span'), { textContent: points[0]?.time.slice(0, 16) ?? '' }),
-    Object.assign(document.createElement('span'), { textContent: `${geometry.minimum}–${geometry.maximum}` }),
-    Object.assign(document.createElement('span'), { textContent: points.at(-1)?.time.slice(0, 16) ?? '' })
+    Object.assign(document.createElement('span'), { textContent: historical?.first ?? points[0]?.time.slice(0, 16) ?? '' }),
+    Object.assign(document.createElement('span'), { textContent: `${historical?.minimum ?? geometry.minimum}–${historical?.maximum ?? geometry.maximum}` }),
+    Object.assign(document.createElement('span'), { textContent: historical?.last ?? points.at(-1)?.time.slice(0, 16) ?? '' })
   )
   target.append(svg, labels)
 }
 
 function renderCharts(): void {
   intradayCount.textContent = `${intradayPoints.length} 条真实记录`
-  dailyCount.textContent = `${dailyPoints.length} 条真实记录`
+  const estimates = historicalEstimateView(estimatedHistory)
+  dailyCount.textContent = `${dailyPoints.length} 条正式记录 · ${estimates.points.length} 条历史估计`
+  historyEstimateStatus.textContent = [historyBackfilling ? '正在补全历史，最多需要 3 分钟…' : '', historyRequestError, estimates.text].filter(Boolean).join('\n')
+  historyBackfillButton.disabled = historyBackfilling || currentState?.engine.state !== 'ready'
+  historyBackfillButton.textContent = historyBackfilling ? '补全中…' : '补全历史'
   renderChart(intradayChart, intradayPoints, true)
-  renderChart(dailyChart, dailyPoints, false)
+  renderChart(dailyChart, dailyPoints, false, estimates.points)
 }
 
 async function loadPanicDetails(force = false): Promise<void> {
@@ -538,11 +569,14 @@ async function loadPanicDetails(force = false): Promise<void> {
     const results = await Promise.allSettled([
       window.fundApp.panic.getRealtimeHistory(tradeDate),
       window.fundApp.panic.getDailyHistory(500),
-      window.fundApp.panic.getSources()
+      window.fundApp.panic.getSources(),
+      window.fundApp.panic.getHistoricalEstimates()
     ])
     if (results[0].status === 'fulfilled') intradayPoints = historyPoints(results[0].value, 'intraday')
     if (results[1].status === 'fulfilled') dailyPoints = historyPoints(results[1].value, 'daily')
     if (results[2].status === 'fulfilled') sourceData = asRecord(results[2].value)
+    if (results[3].status === 'fulfilled') { estimatedHistory = results[3].value; historyRequestError = '' }
+    else historyRequestError = `历史估计读取失败：${String(results[3].reason)}`
     renderCharts()
     renderSources(asRecord(currentState?.panic.realtime))
     const failures = results.filter((result) => result.status === 'rejected')
@@ -654,6 +688,20 @@ panicRefreshButton.addEventListener('click', () => void refreshPanic())
 panicRetryButton.addEventListener('click', () => void refreshPanic())
 intradayExportButton.addEventListener('click', () => void exportChart('intraday', intradayExportButton))
 dailyExportButton.addEventListener('click', () => void exportChart('daily', dailyExportButton))
+historyBackfillButton.addEventListener('click', async () => {
+  if (historyBackfilling) return
+  historyBackfilling = true
+  historyRequestError = ''
+  renderCharts()
+  try {
+    estimatedHistory = await window.fundApp.panic.backfillHistory()
+  } catch (error) {
+    historyRequestError = `历史补全失败：${error instanceof Error ? error.message : String(error)}。请稍后重试，已取得的记录继续显示。`
+  } finally {
+    historyBackfilling = false
+    renderCharts()
+  }
+})
 
 settingsButton.addEventListener('click', () => settingsDialog.showModal())
 settingsClose.addEventListener('click', () => settingsDialog.close())

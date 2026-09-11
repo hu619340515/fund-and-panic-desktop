@@ -3,6 +3,8 @@ import {
   chartPaths,
   formatCompactMoney,
   historyPoints,
+  historicalChartSeries,
+  historicalEstimateView,
   panicUiState,
   unwrapList,
   unwrapRecord
@@ -83,6 +85,32 @@ describe('panic view state', () => {
 })
 
 describe('panic chart and numeric display', () => {
+  it('历史估计筛除正式数据与过期日期，展示覆盖率、缺项和失败状态', () => {
+    const record = {trade_date:'2026-09-09',final_panic_index:45,coverage:0.6,
+      finality:'estimated',quality_status:'historical_estimate',missing_features:['qvix_level']}
+    const view = historicalEstimateView({records:[record,
+      {...record,trade_date:'2026-09-10',coverage:0.8},
+      {...record,trade_date:'2020-01-01'}, {...record,finality:'final'}],
+      status:{state:'error',message:'部分日期失败',errors:['来源连接失败']}}, new Date('2026-09-10'))
+    expect(view.points).toHaveLength(2)
+    expect(view.text).toContain('60%–80%')
+    expect(view.text).toContain('缺项：QVIX')
+    expect(view.text).toContain('来源连接失败')
+    expect(view.text).toContain('2026-09-09 至 2026-09-10')
+  })
+
+  it('正式与估计共享日期坐标，不合并同日值，单独估计也可绘制', () => {
+    const formal = [{time:'2026-09-10',value:50}]
+    const estimated = [{time:'2026-09-01',value:20},{time:'2026-09-10',value:40}]
+    const chart = historicalChartSeries(formal, estimated)
+    expect(chart.formalPoints[0]?.x).toBe(chart.estimatedPoints[1]?.x)
+    expect(chart.formalPoints[0]?.y).not.toBe(chart.estimatedPoints[1]?.y)
+    expect(chart.display).toMatch(/^M616/)
+    expect(chart.estimate).toMatch(/^M24/)
+    expect(historicalChartSeries([], estimated).estimate).not.toBe('')
+    expect(historicalChartSeries([], []).display).toBe('')
+  })
+
   it('原始值和显示值共用同一纵轴', () => {
     const paths = chartPaths([
       { time: '10:00', value: 50, raw: 50 },

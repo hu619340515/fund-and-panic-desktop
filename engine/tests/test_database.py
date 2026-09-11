@@ -6,6 +6,7 @@ except ModuleNotFoundError:
     from . import _bootstrap  # noqa: F401
 
 import sqlite3
+import json
 import shutil
 import tempfile
 import unittest
@@ -18,6 +19,62 @@ from tests.helpers import REALTIME_FIXTURE, make_database, now, settings, test_l
 
 
 class TestDatabase(unittest.TestCase):
+    def test_api_aggregate_preserves_qvix_and_amount_baseline_from_raw_json(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = make_database(Path(directory))
+            pipeline = RealtimePipeline(settings(), database, test_logger())
+            context = pipeline.calendar.context(now(10, 0))
+            results, events = pipeline.providers.collect(
+                context.now, context.expected_trade_date, str(REALTIME_FIXTURE)
+            )
+            aggregate = pipeline._build_aggregate(context, results)
+            aggregate.qvix_previous_close = 18.25
+            aggregate.qvix_previous_5m = 19.5
+            aggregate.median_daily_market_amount_20 = 1_230_000_000_000.0
+            result, history_days, blend = pipeline._score(aggregate, [], None, context.now)
+            database.write_realtime(aggregate, result, history_days, blend, events)
+
+            value = database.latest_realtime_with_aggregate()["aggregate"]
+
+            for key, expected in aggregate.to_dict().items():
+                self.assertEqual(value[key], expected, key)
+            self.assertNotIn("raw_json", value)
+            self.assertNotIn("sources_json", value)
+            with closing(database.connect()) as connection:
+                self.assertEqual(connection.execute(
+                    "SELECT value FROM metadata WHERE key='schema_version'"
+                ).fetchone()[0], "5")
+
+    def test_aggregate_never_borrows_missing_values_from_older_raw_snapshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = make_database(Path(directory))
+            pipeline = RealtimePipeline(settings(), database, test_logger())
+            pipeline.run(now(10, 0), fixture=str(REALTIME_FIXTURE))
+            pipeline.run(now(10, 1), fixture=str(REALTIME_FIXTURE))
+            timestamp = database.latest_realtime()["timestamp"]
+            with database.transaction() as connection:
+                row = connection.execute(
+                    "SELECT raw_json FROM realtime_raw_metrics WHERE timestamp=?", (timestamp,)
+                ).fetchone()
+                raw = json.loads(row[0])
+                raw["qvix_previous_close"] = None
+                raw.pop("qvix_previous_5m")
+                raw.pop("median_daily_market_amount_20")
+                connection.execute(
+                    "UPDATE realtime_raw_metrics SET raw_json=? WHERE timestamp=?",
+                    (json.dumps(raw), timestamp),
+                )
+            value = database.latest_realtime_with_aggregate()["aggregate"]
+            self.assertIsNone(value["qvix_previous_close"])
+            self.assertNotIn("qvix_previous_5m", value)
+            self.assertNotIn("median_daily_market_amount_20", value)
+            with database.transaction() as connection:
+                connection.execute("DELETE FROM realtime_raw_metrics WHERE timestamp=?", (timestamp,))
+            value = database.latest_realtime_with_aggregate()["aggregate"]
+            self.assertEqual(value["timestamp"], timestamp)
+            self.assertNotIn("qvix_previous_close", value)
+            self.assertIsNotNone(value["qvix"])
+
     def test_legacy_database_is_backed_up_and_replaced_by_v5(self):
         with tempfile.TemporaryDirectory(prefix="恐慌指数数据库-") as directory:
             root = Path(directory)

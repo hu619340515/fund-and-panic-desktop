@@ -17,7 +17,7 @@ async function poll(operation, predicate, timeout = 90000) {
 }
 
 async function main() {
-  const executablePath = path.resolve(process.argv[2] ?? path.join(root, 'desktop/dist/FundAndPanic-Portable-2.0.1-x64.exe'))
+  const executablePath = path.resolve(process.argv[2] ?? path.join(root, 'desktop/dist/FundAndPanic-Portable-2.0.2-x64.exe'))
   const output = path.join(root, 'output/live-201')
   await fs.mkdir(output, { recursive: true })
   const userData = await fs.mkdtemp(path.join(output, '实网中文用户目录-'))
@@ -43,7 +43,7 @@ async function main() {
     assert.equal(ready.state, 'ready', ready.error)
     report.health = await (await fetch(`${ready.baseUrl}/healthz`, {signal:AbortSignal.timeout(5000)})).json()
     enginePid = report.health.pid
-    assert.equal(report.health.client_version, '2.0.1')
+    assert.equal(report.health.client_version, '2.0.2')
     assert.equal(report.health.engine_version, '3.0-realtime')
     assert.equal(report.health.database_schema_version, 5)
     await poll(() => page.evaluate(() => window.fundApp.getState()), value => !value.panic.refreshing)

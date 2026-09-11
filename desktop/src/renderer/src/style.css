@@ -180,6 +180,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, .fund-summary:f
 .chart-grid-line { stroke: #293548; stroke-width: 1; stroke-dasharray: 3 5; }
 .chart-line { fill: none; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .chart-line-display { stroke: #7689ff; stroke-width: 2.5; }
+.chart-line-estimate { stroke: #46cfb5; stroke-width: 2; stroke-dasharray: 5 4; }
+.estimate-dot { background: #46cfb5; }
+.history-estimate-status { margin: 0 16px 12px; color: #a8b6c9; font-size: 12px; line-height: 1.6; white-space: pre-line; overflow-wrap: anywhere; }
+.chart-panel .subsection-heading, .chart-tools { flex-wrap: wrap; }
 .chart-line-raw { stroke: #f2a35c; stroke-width: 1.4; opacity: .78; }
 .chart-labels { display: flex; justify-content: space-between; padding: 0 14px; color: #66758a; font-size: 7px; }
 .chart-empty { display: grid; min-height: 175px; place-items: center; color: #738096; font-size: 9px; border: 1px dashed #2e3a4d; border-radius: 8px; }

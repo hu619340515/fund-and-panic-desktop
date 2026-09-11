@@ -128,13 +128,13 @@ async function main() {
 
     // “当日盘中曲线”只允许显示当前上海日期的记录；无日期 IPC 的全库结果已在上方独立校验。
     await expectText(page, '#intraday-count', `${dbBeforeLaunch.intraday_current_records} 条真实记录`)
-    await expectText(page, '#daily-count', `${dbBeforeLaunch.daily_records} 条真实记录`)
+    await expectText(page, '#daily-count', `${dbBeforeLaunch.daily_records} 条正式记录 · 0 条历史估计`)
     const rendered = await page.evaluate(() => ({
       intraday: document.querySelector('#intraday-chart svg')?.getAttribute('aria-label'),
       daily: document.querySelector('#daily-chart svg')?.getAttribute('aria-label')
     }))
     assert.equal(rendered.intraday, `包含 ${dbBeforeLaunch.intraday_current_records} 条真实记录的曲线`)
-    assert.equal(rendered.daily, `包含 ${dbBeforeLaunch.daily_records} 条真实记录的曲线`)
+    assert.equal(rendered.daily, `包含 ${dbBeforeLaunch.daily_records} 条正式记录、0 条历史估计的曲线`)
     checks.push('当日盘中曲线记录数与当前上海日期 SQLite 记录一致；getRealtimeHistory(当前日期) 已过滤当日记录')
 
     const generated = await page.evaluate(async () => ({

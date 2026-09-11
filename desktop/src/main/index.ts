@@ -451,6 +451,8 @@ function registerIpc(): void {
   handle(IPC_CHANNELS.PANIC_DAILY_HISTORY, async (_event, rawLimit: unknown) =>
     panicEngine.get(`/api/v1/daily/history?limit=${validateLimit(rawLimit)}`))
   handle(IPC_CHANNELS.PANIC_SOURCES, async () => panicEngine.get('/api/v1/sources'))
+  handle(IPC_CHANNELS.PANIC_HISTORICAL_ESTIMATES, async () => panicEngine.get('/api/v1/history'))
+  handle(IPC_CHANNELS.PANIC_BACKFILL_HISTORY, async () => panicEngine.post('/api/v1/history/refresh'))
   handle(IPC_CHANNELS.PANIC_REFRESH, async () => {
     if (panicEngine.status().state === 'error' || panicEngine.status().state === 'stopped') await panicEngine.restart()
     else if (panicEngine.status().state === 'starting') await panicEngine.start()

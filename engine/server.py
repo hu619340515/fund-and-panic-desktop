@@ -21,7 +21,7 @@ import uvicorn
 
 
 API_VERSION = "1"
-DEFAULT_CLIENT_VERSION = "2.0.1"
+DEFAULT_CLIENT_VERSION = "2.0.2"
 
 
 def parse_args() -> argparse.Namespace:

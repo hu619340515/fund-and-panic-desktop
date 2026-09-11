@@ -154,3 +154,64 @@ export function formatCompactMoney(value: unknown): string {
   if (Math.abs(number) >= 1e4) return `${(number / 1e4).toFixed(0)} 万元`
   return `${number.toFixed(0)} 元`
 }
+
+/** 历史估计与正式记录使用共同日期轴和纵轴，互不覆盖或拼接。 */
+export function historicalChartSeries(formal: PanicPoint[], estimated: PanicPoint[]) {
+  const all = [...formal, ...estimated].sort((a, b) => a.time.localeCompare(b.time))
+  const minimum = 0
+  const maximum = 100
+  const first = all[0]?.time ?? ''
+  const last = all.at(-1)?.time ?? ''
+  const start = Date.parse(first)
+  const span = Date.parse(last) - start
+  const coordinates = (points: PanicPoint[]) => points.map(point => ({
+    ...point,
+    x: span > 0 ? 24 + (Date.parse(point.time) - start) / span * 592 : 320,
+    y: 24 + (1 - point.value / 100) * 132
+  }))
+  const formalPoints = coordinates(formal)
+  const estimatedPoints = coordinates(estimated)
+  const line = (points: typeof formalPoints) => points.map((point, index) =>
+    `${index ? 'L' : 'M'}${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ')
+  return {minimum, maximum, first, last, formalPoints, estimatedPoints,
+    display:line(formalPoints), estimate:line(estimatedPoints)}
+}
+
+export function historicalEstimateView(payload: unknown, now = new Date()) {
+  const value = asRecord(payload)
+  const records = Array.isArray(value?.records) ? value.records.map(asRecord).filter((row): row is UnknownRecord =>
+    Boolean(row && row.finality === 'estimated' && row.quality_status === 'historical_estimate')) : []
+  const points = historyPoints(records, 'daily', now)
+  const dates = new Set(points.map(point => point.time))
+  const visible = records.filter(row => dates.has(String(row.trade_date)))
+  const coverage = visible.map(row => finiteNumber(row.coverage)).filter((x): x is number => x !== null)
+  const missing = [...new Set(visible.flatMap(row => Array.isArray(row.missing_features)
+    ? row.missing_features.filter((key): key is string => typeof key === 'string') : []))]
+  const labels: Record<string, string> = {
+    up_count:'上涨家数', down_count:'下跌家数', limit_up:'涨停家数', limit_down:'跌停家数',
+    decline_share:'下跌占比', decline_5_share:'跌幅≥5%占比', decline_7_share:'跌幅≥7%占比',
+    median_return:'收益中位数', front_annualized_basis:'IF近月基差', next_annualized_basis:'IF次月基差',
+    qvix_level:'QVIX', qvix_daily_change:'QVIX日变化', market_amount:'成交额',
+    amount_ratio:'成交额比率', breadth:'市场宽度', derivatives:'衍生品',
+    ewma_volatility_5:'5日加权波动率', realized_volatility_20:'20日实际波动率',
+    downside_volatility_20:'20日下行波动率', parkinson_volatility_10:'10日高低价波动率',
+    daily_down_jump:'单日下行跳跃', basis_curve_stress:'基差曲线压力', basis_expansion_3d:'3日基差扩大',
+    daily_amount_shortfall:'成交额不足', daily_amihud:'日度非流动性', daily_downside_turnover:'下跌成交压力',
+    limit_down_share:'跌停占比', limit_up_down_imbalance:'涨跌停失衡',
+    severe_decline_share:'跌幅≥5%占比', extreme_decline_share:'跌幅≥7%占比',
+    median_return_stress:'收益中位数压力', limit_down_intensity:'跌停强度', limit_imbalance:'涨跌停失衡'
+  }
+  const status = asRecord(value?.status)
+  const lines = [points.length
+    ? `${points[0]?.time} 至 ${points.at(-1)?.time} · ${points.length} 条历史估计`
+    : '暂无可回算历史估计，点击“补全历史”获取可用数据']
+  if (coverage.length) lines.push(`覆盖率 ${(Math.min(...coverage) * 100).toFixed(0)}%–${(Math.max(...coverage) * 100).toFixed(0)}%`)
+  if (missing.length) lines.push(`缺项：${missing.map(key => labels[key] ?? key).join('、')}`)
+  lines.push('历史估计基于可取得的历史数据回算，与完整数据生成的正式收盘分开显示。')
+  if (typeof status?.message === 'string' && status.message) lines.push(status.message)
+  if (status?.state === 'error') lines.push('历史补全失败，可重试；保留已成功日期。')
+  if (Array.isArray(status?.errors) && status.errors.length) lines.push(`失败详情：${status.errors.map(error =>
+    typeof error === 'string' ? error : JSON.stringify(error)).join('；')}`)
+  if (typeof status?.updated_at === 'string') lines.push(`最近更新 ${status.updated_at}`)
+  return {points, text:lines.join('\n')}
+}

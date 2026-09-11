@@ -136,6 +136,8 @@ export interface PanicApi {
   getDailyLatest(): Promise<unknown>
   getRealtimeHistory(date?: string): Promise<unknown>
   getDailyHistory(limit?: number): Promise<unknown>
+  getHistoricalEstimates(): Promise<unknown>
+  backfillHistory(): Promise<unknown>
   getSources(): Promise<unknown>
   getHealth(): Promise<EngineStatus>
   refresh(): Promise<unknown>
@@ -153,6 +155,8 @@ export const IPC_CHANNELS = {
   PANIC_DAILY: 'panic:get-daily',
   PANIC_REALTIME_HISTORY: 'panic:get-realtime-history',
   PANIC_DAILY_HISTORY: 'panic:get-daily-history',
+  PANIC_HISTORICAL_ESTIMATES: 'panic:get-historical-estimates',
+  PANIC_BACKFILL_HISTORY: 'panic:backfill-history',
   PANIC_SOURCES: 'panic:get-sources',
   PANIC_ENGINE_STATUS: 'panic:engine-status',
   PANIC_REFRESH: 'panic:refresh',

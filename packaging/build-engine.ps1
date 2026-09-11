@@ -62,7 +62,7 @@ if ($sourceHashAfter -ne $sourceHashBefore) {
 $manifest = [ordered]@{
   sourceSha256 = $sourceHashAfter
   engineVersion = "3.0-realtime"
-  clientVersion = "2.0.1"
+  clientVersion = "2.0.2"
 } | ConvertTo-Json
 $manifestPath = Join-Path $dist "panic-engine\build-manifest.json"
 [IO.File]::WriteAllText($manifestPath, $manifest + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))

@@ -60,8 +60,9 @@ def build_daily_feature_values(
         "parkinson_volatility_10": parkinson10,
         "daily_down_jump": jump,
     }
-    values.update(
-        breadth_feature_values(
+    breadth_fields = ("down_count", "valid_stock_count", "decline_5_share", "decline_7_share", "median_return", "limit_up", "limit_down")
+    if all(current.get(name) is not None for name in breadth_fields):
+        values.update(breadth_feature_values(
             int(current["down_count"]),
             int(current["valid_stock_count"]),
             float(current["decline_5_share"]),
@@ -69,8 +70,9 @@ def build_daily_feature_values(
             float(current["median_return"]),
             int(current["limit_up"]),
             int(current["limit_down"]),
-        )
-    )
+        ))
+    else:
+        values.update(dict.fromkeys(("decline_share", "severe_decline_share", "extreme_decline_share", "median_return_stress", "limit_down_intensity", "limit_imbalance")))
     values.update(
         {
             "front_annualized_basis": current.get("front_annualized_basis"),
