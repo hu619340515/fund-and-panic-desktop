@@ -98,23 +98,32 @@ def run_with_hard_timeout(
         target=_process_entry,
         args=(child_connection, target, args),
     )
-    process.start()
-    child_connection.close()
-    if not parent_connection.poll(timeout_seconds):
-        process.terminate()
-        process.join(5)
-        parent_connection.close()
-        raise ProviderTimeout(f"数据源硬超时 {timeout_seconds:g} 秒")
+    started = time.monotonic()
     try:
+        process.start()
+        child_connection.close()
+        if not parent_connection.poll(timeout_seconds):
+            raise ProviderTimeout(f"数据源 {target.__name__} 硬超时 {timeout_seconds:g} 秒")
         ok, payload = parent_connection.recv()
     except EOFError as error:
-        raise ProviderError(f"数据源子进程异常退出，退出码 {process.exitcode}") from error
+        process.join(1)
+        raise ProviderError(
+            f"数据源 {target.__name__} 子进程异常退出，退出码 {process.exitcode}，"
+            f"耗时 {time.monotonic() - started:.2f} 秒"
+        ) from error
     finally:
+        child_connection.close()
         parent_connection.close()
-    process.join(5)
-    if process.is_alive():
-        process.terminate()
-        process.join(5)
+        if process.pid is not None:
+            process.join(0.2)
+            if process.is_alive():
+                process.terminate()
+                process.join(5)
+            if process.is_alive():
+                process.kill()
+                process.join(5)
+            if not process.is_alive():
+                process.close()
     if ok:
         return payload
     error_type, message = payload
@@ -129,10 +138,19 @@ def run_with_hard_timeout(
 
 
 def _process_entry(connection, target: Callable[..., Any], args: tuple[Any, ...]) -> None:
+    import sys
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     try:
-        connection.send((True, target(*args)))
+        payload = (True, target(*args))
     except Exception as error:
-        connection.send((False, (type(error).__name__, str(error))))
+        payload = (False, (type(error).__name__, str(error)))
+    try:
+        connection.send(payload)
+    except (BrokenPipeError, EOFError, OSError):
+        # 超时取消后父进程已关闭接收端，无需再次回传异常。
+        pass
     finally:
         connection.close()
 

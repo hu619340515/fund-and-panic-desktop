@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import multiprocessing
+
+if __name__ == "__main__":
+    multiprocessing.freeze_support()
+
 import argparse
 import ctypes
 import os
@@ -16,7 +21,7 @@ import uvicorn
 
 
 API_VERSION = "1"
-DEFAULT_CLIENT_VERSION = "2.0.0"
+DEFAULT_CLIENT_VERSION = "2.0.1"
 
 
 def parse_args() -> argparse.Namespace:
@@ -94,6 +99,15 @@ def _start_parent_watcher(parent_pid: int | None) -> None:
 
 
 def main() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+    if sys.argv[1:] == ["--worker-self-test"]:
+        import json
+        sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
+        from a_share_panic_index.worker_diagnostics import run_worker_diagnostics
+        print(json.dumps(run_worker_diagnostics(), ensure_ascii=False))
+        return
     args = parse_args()
     _start_parent_watcher(args.parent_pid)
     paths = _prepare_user_paths(args.database, args.log_directory)

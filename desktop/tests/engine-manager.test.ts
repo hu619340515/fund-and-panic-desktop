@@ -15,6 +15,8 @@ fs.appendFileSync(arg('--log-directory') + '/starts.txt', process.pid + '\\n');
 const server = http.createServer((req, res) => {
  const url = new URL(req.url, 'http://localhost');
  if (url.pathname === '/api/v1/bad') { res.end('bad json'); return; }
+ if (url.pathname === '/api/v1/slow') { return; }
+ if (url.pathname === '/api/v1/collection') {res.statusCode=503;res.end(JSON.stringify({detail:{code:'collection_failed',message:'指数采集失败：腾讯与新浪行情不可用',retry_after_seconds:60}}));return;}
  if (url.pathname === '/api/v1/missing') {res.statusCode=404;res.end(JSON.stringify({detail:'暂无数据'}));return;}
  res.setHeader('Content-Type', 'application/json');
  res.end(JSON.stringify(url.pathname === '/healthz' ? {
@@ -44,6 +46,18 @@ afterEach(async () => {
 })
 
 describe('引擎实际子进程', () => {
+  it('保留结构化采集错误，健康服务不会因HTTP失败、坏响应或请求超时重启', async () => {
+    const { manager, root } = await make(fixture, { requestTimeoutMs: 100 })
+    await manager.start()
+    await expect(manager.get('/api/v1/collection')).rejects.toMatchObject({
+      statusCode: 503, code: 'collection_failed', retryAfterSeconds: 60,
+      message: expect.stringContaining('腾讯与新浪')
+    })
+    await expect(manager.get('/api/v1/bad')).rejects.toThrow('无效 JSON')
+    await expect(manager.get('/api/v1/slow')).rejects.toThrow('请求超时')
+    expect(manager.status().state).toBe('ready')
+    expect((await readFile(join(root, '用户数据/logs/starts.txt'), 'utf8')).trim().split('\n')).toHaveLength(1)
+  })
   it('合并并发启动，使用中文用户路径，保留GET查询和POST方法，退出后端口关闭', async () => {
     const { manager, root } = await make()
     const [first, second] = await Promise.all([manager.start(), manager.start()])

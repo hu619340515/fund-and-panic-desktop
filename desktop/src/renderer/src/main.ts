@@ -338,13 +338,13 @@ function renderPanic(state: AppSnapshot): void {
     loading: '正在获取首次数据…',
     success: state.panic.refreshing ? '正在更新，当前显示上次成功数据' : '数据已更新',
     stale: '当前显示的是过期数据，请刷新或检查数据源',
-    error: '加载失败，请查看下方错误并重试',
+    error: state.engine.state === 'ready' ? '行情采集或读取失败，请查看下方数据源错误；已有收盘记录仍可查看' : '引擎未连接，请查看下方错误并重试',
     empty: '暂无真实数据，等待引擎完成首次采集'
   }
   panicState.textContent = stateMessages[uiState]
   panicState.className = `data-state data-state-${uiState}`
 
-  const engineLabels = { ready: '引擎已连接', starting: '引擎启动中', stopped: '引擎未连接', error: '引擎异常' }
+  const engineLabels = { ready: state.panic.error ? '引擎已连接 · 数据请求失败' : '引擎已连接', starting: '引擎启动中', stopped: '引擎未连接', error: '引擎未连接' }
   panicEngineStatus.textContent = engineLabels[state.engine.state]
   panicEngineStatus.className = `status-chip status-${state.engine.state}`
   panicRefreshButton.disabled = Boolean(state.panic.refreshing)
@@ -583,9 +583,10 @@ async function refreshPanic(): Promise<void> {
     await window.fundApp.panic.refresh()
     render(await window.fundApp.getState())
     await loadPanicDetails(true)
-    showToast('恐慌指数刷新完成')
+    showToast(currentState?.panic.error ? '恐慌指数刷新失败，请查看数据源错误' : '恐慌指数刷新完成', currentState?.panic.error ? 'error' : undefined)
   } catch (error) {
     showToast(error instanceof Error ? error.message : '恐慌指数刷新失败', 'error')
+    await loadPanicDetails(true)
   }
 }
 
@@ -677,8 +678,9 @@ async function start(): Promise<void> {
     render(await window.fundApp.getState())
     window.fundApp.onStateChanged((state) => {
       const becameReady = currentState?.engine.state !== 'ready' && state.engine.state === 'ready'
+      const refreshFinished = currentState?.panic.refreshing === true && state.panic.refreshing === false
       render(state)
-      if (becameReady) void loadPanicDetails()
+      if (becameReady || refreshFinished) void loadPanicDetails()
     })
     await loadPanicDetails()
   } catch (error) {

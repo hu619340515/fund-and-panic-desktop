@@ -10,17 +10,33 @@ import unittest
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
 from scripts.a_share_panic_index.pipeline.daily import DailyPipeline
 from scripts.a_share_panic_index.pipeline.realtime import RealtimePipeline
+from scripts.a_share_panic_index.providers.base import ProviderUnavailable
 from scripts.a_share_panic_index.validation import run_validation
 from scripts.a_share_panic_index.web import create_app
 from tests.helpers import REALTIME_FIXTURE, make_database, now, settings, test_logger
 
 
 class TestWebAndValidation(unittest.TestCase):
+    def test_collection_failure_keeps_health_and_daily_available(self):
+        app = create_app(self.settings, self.database, self.logger)
+        with TestClient(app) as client, patch.object(
+            app.state.collector, "collect_once",
+            side_effect=ProviderUnavailable("breadth全部数据源失败: sina: 超时"),
+        ):
+            response = client.post("/api/v1/realtime/refresh")
+            self.assertEqual(response.status_code, 503)
+            detail = response.json()["detail"]
+            self.assertEqual(detail["code"], "collection_failed")
+            self.assertIn("sina", detail["message"])
+            self.assertEqual(client.get("/healthz").status_code, 200)
+            self.assertEqual(client.get("/api/v1/daily/latest").status_code, 200)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)

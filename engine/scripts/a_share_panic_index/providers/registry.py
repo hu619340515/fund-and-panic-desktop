@@ -278,6 +278,12 @@ class ProviderManager:
         if semantic_type not in {"index", "futures", "qvix"}:
             return
         for provider in providers:
+            # AKShare 的 IF 封装仍取自新浪；QVIX 两种标的也不是同一指标。
+            if semantic_type == "qvix" or (
+                semantic_type == "futures"
+                and {str(primary.get("provider")), provider} <= {"sina_futures", "akshare_futures"}
+            ):
+                continue
             if self._circuit_open(provider, semantic_type):
                 continue
             try:

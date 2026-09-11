@@ -47,15 +47,26 @@ export class PanicService {
 
   private async run(collect: boolean): Promise<PanicSnapshot> {
     this.publish({ refreshing: true, error: null })
-    try {
-      if (collect) await this.engine.post('/api/v1/realtime/refresh')
-      const [realtime, daily] = await Promise.all([
-        this.read('/api/v1/realtime'), this.read('/api/v1/daily/latest')
-      ])
-      this.publish({ realtime, daily, refreshedAt: new Date().toISOString() })
-    } catch (error) {
-      this.publish({ realtime: null, error: `${error instanceof Error ? error.message : String(error)}。请检查网络后重试；日志：${this.engine.status().logPath}` })
-    } finally { this.publish({ refreshing: false }) }
+    const [realtimeResult, dailyResult] = await Promise.allSettled([
+      (async () => {
+        if (collect) await this.engine.post('/api/v1/realtime/refresh')
+        return this.read('/api/v1/realtime')
+      })(),
+      this.read('/api/v1/daily/latest')
+    ])
+    const errors = [realtimeResult, dailyResult].flatMap((result) => {
+      if (result.status === 'fulfilled') return []
+      const error: unknown = result.reason
+      const retry = error instanceof EngineHttpError && error.retryAfterSeconds
+        ? `请在 ${error.retryAfterSeconds} 秒后重试` : '请检查网络和数据源后重试'
+      return [`${error instanceof Error ? error.message : String(error)}。${retry}`]
+    })
+    this.publish({
+      realtime: realtimeResult.status === 'fulfilled' ? realtimeResult.value : null,
+      daily: dailyResult.status === 'fulfilled' ? dailyResult.value : this.current.daily,
+      error: errors.length ? `${errors.join('；')}；日志：${this.engine.status().logPath}` : null,
+      refreshedAt: new Date().toISOString(), refreshing: false
+    })
     return { ...this.current }
   }
 }

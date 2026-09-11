@@ -18,7 +18,8 @@ from .. import DB_SCHEMA_VERSION, MODEL_VERSION
 from ..calendar import TradingCalendar
 from ..chart import ChartError, generate_chart
 from ..pipeline.daily import DailyPipeline
-from ..pipeline.realtime import RealtimePipeline
+from ..pipeline.realtime import RealtimePipeline, PipelineError
+from ..providers.base import ProviderError
 
 
 STATIC_ROOT = Path(__file__).resolve().parent / "static"
@@ -146,7 +147,15 @@ def create_app(
 
     @app.post("/api/v1/realtime/refresh")
     def realtime_refresh() -> dict[str, Any]:
-        value = collector.collect_once()
+        try:
+            value = collector.collect_once()
+        except (ProviderError, PipelineError) as error:
+            logger.exception("行情采集失败: %s", error)
+            raise HTTPException(status_code=503, detail={
+                "code": "collection_failed",
+                "message": str(error),
+                "retry_after_seconds": 60,
+            }) from error
         if value.get("status") == "collector_busy":
             raise HTTPException(status_code=409, detail="实时采集正在进行")
         return value

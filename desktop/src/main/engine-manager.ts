@@ -32,8 +32,16 @@ interface EngineManagerOptions {
 }
 
 export class EngineHttpError extends Error {
-  constructor(public readonly statusCode: number, detail: string) {
-    super(`引擎 HTTP ${statusCode}：${detail}`)
+  readonly code?: string
+  readonly retryAfterSeconds?: number
+
+  constructor(public readonly statusCode: number, detail: unknown) {
+    const value = detail && typeof detail === 'object' ? detail as Record<string, unknown> : null
+    const message = typeof detail === 'string' ? detail : typeof value?.message === 'string' ? value.message : '请求失败'
+    super(`引擎 HTTP ${statusCode}：${message}`)
+    this.code = typeof value?.code === 'string' ? value.code : undefined
+    this.retryAfterSeconds = typeof value?.retry_after_seconds === 'number' && value.retry_after_seconds > 0
+      ? value.retry_after_seconds : undefined
   }
 }
 
@@ -53,7 +61,7 @@ export function engineRequest(url: string, method = 'GET', timeoutMs = 5000): Pr
         try {
           const value = JSON.parse(body) as Record<string, unknown>
           if ((response.statusCode ?? 500) >= 400) {
-            reject(new EngineHttpError(response.statusCode ?? 500, String(value.detail ?? '请求失败')))
+            reject(new EngineHttpError(response.statusCode ?? 500, value.detail ?? '请求失败'))
           } else resolve(value)
         } catch { reject(new Error('引擎返回无效 JSON')) }
       })
@@ -87,7 +95,7 @@ export class PanicEngineManager implements PanicEngineClient {
 
   constructor(private readonly options: EngineManagerOptions) {
     this.current = { state: 'stopped', baseUrl: null, error: null, version: ENGINE_VERSION,
-      databaseVersion: null, clientVersion: options.clientVersion ?? '2.0.0',
+      databaseVersion: null, clientVersion: options.clientVersion ?? '2.0.1',
       logPath: join(options.userDataPath, 'logs', 'engine-process.log') }
   }
 
@@ -214,6 +222,15 @@ export class PanicEngineManager implements PanicEngineClient {
     } catch (error) {
       if (this.stopped || this.current.baseUrl !== status.baseUrl || this.current.state !== 'ready') throw error
       if (!(error instanceof EngineHttpError)) {
+        // 单个采集请求超时或响应损坏并不代表服务进程失效。
+        let healthy = false
+        try {
+          const health = await engineRequest(`${status.baseUrl}/healthz`, 'GET', 1500) as Record<string, unknown>
+          healthy = health.ok === true && health.engine_version === ENGINE_VERSION &&
+            health.database_schema_version === DATABASE_VERSION && health.client_version === this.current.clientVersion
+        } catch { /* 健康检查也失败，进入现有的一次恢复流程。 */ }
+        if (healthy) throw error
+        if (this.stopped || this.current.baseUrl !== status.baseUrl || this.current.state !== 'ready') throw error
         this.update({ state: 'error', baseUrl: null, error: `${String(error)}；日志：${this.current.logPath}` })
         if (this.retries++ < 1 && !this.stopped) {
           await this.terminateChild()

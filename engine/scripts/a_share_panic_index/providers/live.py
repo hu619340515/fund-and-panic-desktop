@@ -233,6 +233,9 @@ def fetch_eastmoney_breadth(context: dict[str, Any]) -> dict[str, Any]:
         rows = list(rows.values())
     if not isinstance(rows, list) or not rows:
         raise ProviderDataError("东方财富全市场行情为空")
+    total = _optional_number((payload.get("data") or {}).get("total"))
+    if total is None or total <= 0 or len(rows) < total:
+        raise ProviderDataError(f"东方财富全市场返回不完整：收到 {len(rows)} 条，总数 {total}；切换备用来源")
     changes: list[float] = []
     amount = 0.0
     for row in rows:
@@ -430,9 +433,13 @@ def fetch_tencent_breadth(context: dict[str, Any]) -> dict[str, Any]:
         },
         headers={"Referer": "https://quote.eastmoney.com/"},
     )
-    universe = (universe_response.json().get("data") or {}).get("diff") or []
+    universe_data = universe_response.json().get("data") or {}
+    universe = universe_data.get("diff") or []
     if isinstance(universe, dict):
         universe = list(universe.values())
+    total = _optional_number(universe_data.get("total"))
+    if total is None or total <= 0 or len(universe) < total:
+        raise ProviderDataError("腾讯宽度备选源的东方财富代码表不完整")
     symbols = []
     for row in universe:
         code = str(row.get("f12") or "").zfill(6)
@@ -569,13 +576,17 @@ def fetch_sina_futures(context: dict[str, Any]) -> dict[str, Any]:
         if not match or not match.group(1):
             continue
         fields = match.group(1).split(",")
-        numbers = [_optional_number(item) for item in fields]
-        positive = [value for value in numbers if value is not None and value > 100]
-        if len(positive) < 3:
+        # 中金所格式：0 开盘、1 最高、2 最低、3 最新，16 买一、26 卖一。
+        # 与 AKShare futures_zh_spot(market='FF') 的 current_price 映射一致。
+        if len(fields) < 38:
             continue
-        last = positive[0]
-        bid = positive[1] if len(positive) > 1 else None
-        ask = positive[2] if len(positive) > 2 else None
+        last = _optional_number(fields[3])
+        if last is None or last <= 0:
+            continue
+        bid = _optional_number(fields[16])
+        ask = _optional_number(fields[26])
+        if bid is None or ask is None or bid <= 0 or ask <= 0 or bid > ask:
+            bid = ask = None
         timestamps = [item for item in fields if re.fullmatch(r"\d{2}:\d{2}:\d{2}", item)]
         dates = [item for item in fields if re.fullmatch(r"\d{4}-\d{2}-\d{2}", item)]
         if timestamps and dates:

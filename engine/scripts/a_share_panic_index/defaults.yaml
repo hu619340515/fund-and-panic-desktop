@@ -119,8 +119,8 @@ market:
   etf_symbols: [sh510300, sz159919, sh510050, sh510500]
 
 providers:
-  index: [mootdx, tencent, eastmoney, sina]
-  breadth: [eastmoney, sina, mootdx, tencent]
+  index: [tencent, sina, eastmoney, mootdx]
+  breadth: [sina, eastmoney, mootdx, tencent]
   limits: [eastmoney, xuangubao, breadth_estimate]
   futures: [sina_futures, akshare_futures]
   qvix: [qvix_300_index, qvix_300_etf]

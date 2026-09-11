@@ -1,6 +1,6 @@
 {
   "name": "fund-and-panic-desktop",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "基金估值与 A 股恐慌指数 Windows 看板",
   "main": "./out/main/index.js",
   "author": "hu619340515",
@@ -13,7 +13,7 @@
     "test:watch": "vitest",
     "build:app": "electron-vite build",
     "build": "npm run typecheck && npm run test && npm run build:app",
-    "dist:win": "npm run build && node ../packaging/verify-engine.cjs && electron-builder --win --x64",
+    "dist:win": "npm run build && node ../packaging/verify-engine.cjs && node ../packaging/verify-worker-diagnostics.cjs && electron-builder --win --x64",
     "build:engine": "pwsh -NoProfile -ExecutionPolicy Bypass -File ../packaging/build-engine.ps1",
     "test:e2e": "node ../packaging/smoke-desktop.cjs"
   },

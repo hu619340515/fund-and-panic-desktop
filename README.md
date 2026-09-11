@@ -4,9 +4,9 @@
 
 ## 下载与安装
 
-- [安装版 2.0.0](https://github.com/hu619340515/fund-and-panic-desktop/releases/download/v2.0.0/FundAndPanic-Setup-2.0.0-x64.exe)：可选安装目录、桌面和开始菜单快捷方式。
-- [便携版 2.0.0](https://github.com/hu619340515/fund-and-panic-desktop/releases/download/v2.0.0/FundAndPanic-Portable-2.0.0-x64.exe)：直接双击运行，数据仍保存在用户目录。
-- [版本与校验文件](https://github.com/hu619340515/fund-and-panic-desktop/releases/tag/v2.0.0)。安装包未购买代码签名证书，Windows 可能显示未知发布者；请从本仓库 Release 下载并核对 SHA-256。
+- [安装版 2.0.1](https://github.com/hu619340515/fund-and-panic-desktop/releases/download/v2.0.1/FundAndPanic-Setup-2.0.1-x64.exe)：可选安装目录、桌面和开始菜单快捷方式。
+- [便携版 2.0.1](https://github.com/hu619340515/fund-and-panic-desktop/releases/download/v2.0.1/FundAndPanic-Portable-2.0.1-x64.exe)：直接双击运行，数据仍保存在用户目录。
+- [版本与校验文件](https://github.com/hu619340515/fund-and-panic-desktop/releases/tag/v2.0.1)。安装包未购买代码签名证书，Windows 可能显示未知发布者；请从本仓库 Release 下载并核对 SHA-256。
 
 关闭主窗口后驻留托盘，点击托盘恢复，托盘菜单“退出”会终止引擎。卸载不会删除用户数据。开机启动、自动刷新、刷新周期、窗口置顶和透明度可在设置中调整。
 
@@ -57,13 +57,15 @@ npm.cmd run dist:win
 npm.cmd run test:e2e
 node packaging/smoke-charts.cjs
 pwsh -File packaging/smoke-install.ps1
+node packaging/verify-worker-diagnostics.cjs
+node packaging/smoke-live.cjs
 ```
 
-引擎构建脚本使用独立虚拟环境和 PyInstaller；客户端构建前验证内置 EXE 的健康检查与版本。产物在 `desktop/dist/`：
+引擎构建脚本使用独立虚拟环境和 PyInstaller；客户端打包前验证内置 EXE 的健康检查、版本和真实多进程采集机制。`smoke-live.cjs` 必须在交易时段联网执行，与离线测试分开记录。产物在 `desktop/dist/`：
 
 ```text
-FundAndPanic-Setup-2.0.0-x64.exe
-FundAndPanic-Portable-2.0.0-x64.exe
+FundAndPanic-Setup-2.0.1-x64.exe
+FundAndPanic-Portable-2.0.1-x64.exe
 ```
 
 开发诊断 CLI 保留在 `engine/scripts/cli.py`，可以查询数据、探测来源和生成图表；正式入口为桌面程序。服务只监听 `127.0.0.1`，主进程分配随机端口，并校验实例标识、引擎版本和数据库版本。
@@ -74,9 +76,10 @@ FundAndPanic-Portable-2.0.0-x64.exe
 - **版本不匹配或内置文件缺失**：重新安装同一 Release 的完整安装包，不从历史目录拼接 EXE 或资源。
 - **暂无数据**：首次启动、非交易时段或采集不足可能没有指数；等待交易时段并刷新，检查来源健康状态。
 - **数据过期或网络错误**：检查网络和系统时钟，稍后重试；基金和恐慌区域分别显示各自状态。
+- **行情采集失败**：查看错误中的数据类别、来源及重试时间；服务健康时不会因此重启，已有正式收盘及历史仍可读取。冷启动缺少历史的指标保持空值并标记暂定质量。
 - **需要隔离诊断**：可用 `--user-data-dir=绝对目录` 启动独立用户目录。普通使用无需此参数。
 
-详见 [集成说明](docs/local-desktop-integration-plan.md) 与 [验收记录](docs/verification.md)。
+详见 [集成说明](docs/local-desktop-integration-plan.md)、[2.0.1 修复说明](docs/release-notes-v2.0.1.md)、[2.0.1 验收记录](docs/verification-v2.0.1.md) 与 [2.0.0 历史验收](docs/verification.md)。
 
 ## 许可
 
