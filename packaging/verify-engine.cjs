@@ -28,7 +28,7 @@ server.listen(0, '127.0.0.1', () => {
   server.close(async () => {
     const child = spawn(executable, ['--host','127.0.0.1','--port',String(port),'--database',join(directory,'data/panic-index.db'),
       '--config',join(root,'engine/config/settings.yaml'),'--log-directory',join(directory,'logs'),
-      '--client-version','2.0.3','--instance-id','build-verification'], {windowsHide:true, stdio:['ignore','pipe','pipe'], env:{...process.env,PYTHONHOME:'',PYTHONPATH:''}})
+      '--client-version','2.0.4','--instance-id','build-verification'], {windowsHide:true, stdio:['ignore','pipe','pipe'], env:{...process.env,PYTHONHOME:'',PYTHONPATH:''}})
     let stderr = ''
     child.stderr.on('data', (data) => { stderr += data.toString() })
     let exited = false
@@ -41,7 +41,7 @@ server.listen(0, '127.0.0.1', () => {
         try { health = await (await fetch(`http://127.0.0.1:${port}/healthz`, {signal:AbortSignal.timeout(1500)})).json(); break } catch { await new Promise(r=>setTimeout(r,250)) }
       }
       if (!health || health.engine_version !== '3.0-realtime' || health.database_schema_version !== 5 || health.instance_id !== 'build-verification') throw new Error(`内置引擎验证失败：${stderr}`)
-      console.log('内置 EXE 健康检查通过：客户端 2.0.3 / 引擎 3.0-realtime / 数据库 5，中文路径可用')
+      console.log('内置 EXE 健康检查通过：客户端 2.0.4 / 引擎 3.0-realtime / 数据库 5，中文路径可用')
     } catch (error) { console.error(error.message); process.exitCode = 1 }
     finally {
       if (!exited) await new Promise((resolve) => {child.once('exit',resolve);child.kill()})

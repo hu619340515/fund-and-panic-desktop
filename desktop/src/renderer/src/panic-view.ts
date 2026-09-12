@@ -76,6 +76,14 @@ export function historyPoints(
     .sort((left, right) => new Date(left.time).getTime() - new Date(right.time).getTime())
 }
 
+/** 正式收盘视图拒绝明确标记为估计或暂定的记录；兼容旧版未标记的正式接口记录。 */
+export function formalHistoryPoints(value: unknown, now = new Date()): PanicPoint[] {
+  return historyPoints(unwrapList(value).filter(row =>
+    (row.finality === undefined || row.finality === 'final') &&
+    row.quality_status !== 'historical_estimate'
+  ), 'daily', now)
+}
+
 export function panicUiState(options: {
   refreshing: boolean
   realtime: unknown

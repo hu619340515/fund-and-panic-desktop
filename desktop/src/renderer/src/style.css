@@ -265,3 +265,8 @@ body.mini-mode { overflow: hidden; pointer-events: none; }
 .mini-mode .fund-primary strong { font-size: 14px; }
 .mini-mode .change-direction { font-size: 7px; }
 .mini-mode .fund-detail { display: none; }
+
+.annual-panel { border-top: 1px solid var(--line); }
+.chart-note { margin: 0 16px 10px; color: #8493a9; font-size: 9px; }
+.components-panel .component-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.components-panel .subsection-heading { border-top: 0; flex-wrap: wrap; }

@@ -196,6 +196,14 @@ def seed(database_path: Path) -> dict:
                 source_timestamps={"fixture": "engine/tests/fixtures/realtime"},
             ),
         )
+    # 遗留估计保留在独立表中，正式曲线不得读取或绘制此 99 分记录。
+    import sqlite3
+    with sqlite3.connect(database.path) as connection:
+        connection.execute('CREATE TABLE IF NOT EXISTS historical_estimates (trade_date TEXT PRIMARY KEY, payload TEXT NOT NULL)')
+        estimate_date = (today - timedelta(days=3)).isoformat()
+        connection.execute('INSERT OR REPLACE INTO historical_estimates VALUES (?,?)',
+                           (estimate_date, json.dumps({"trade_date": estimate_date, "final_panic_index": 99,
+                                                      "finality": "estimated", "quality_status": "historical_estimate"})))
     return {
         "fixture": "engine/tests/fixtures/realtime（仅测试，不是生产行情）",
         "database": str(database.path),

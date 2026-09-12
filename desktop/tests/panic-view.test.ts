@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   chartPaths,
+  formalHistoryPoints,
   formatCompactMoney,
   historyPoints,
   historicalChartSeries,
@@ -128,5 +129,21 @@ describe('panic chart and numeric display', () => {
     expect(formatCompactMoney(1_260_000_000_000)).toBe('1.26 万亿元')
     expect(formatCompactMoney(88_000_000_000)).toBe('880 亿元')
     expect(formatCompactMoney(null)).toBe('--')
+  })
+})
+
+
+describe('正式收盘曲线', () => {
+  it('排除估计和暂定记录，保留真实日期缺口；只有估计时保持为空', () => {
+    const now = new Date('2026-09-12T12:00:00+08:00')
+    const estimate = { trade_date: '2026-09-10', final_panic_index: 99, finality: 'estimated', quality_status: 'historical_estimate' }
+    expect(formalHistoryPoints([
+      { trade_date: '2026-09-01', final_panic_index: 51, finality: 'final' },
+      estimate,
+      { ...estimate, finality: 'final' },
+      { ...estimate, finality: 'provisional', quality_status: 'partial' },
+      { trade_date: '2026-09-11', final_panic_index: 42 }
+    ], now)).toEqual([{ time: '2026-09-01', value: 51 }, { time: '2026-09-11', value: 42 }])
+    expect(formalHistoryPoints([estimate], now)).toEqual([])
   })
 })

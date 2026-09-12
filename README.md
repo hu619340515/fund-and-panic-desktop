@@ -4,9 +4,9 @@
 
 ## 下载与安装
 
-- [安装版 2.0.3](https://github.com/hu619340515/fund-and-panic-desktop/releases/download/v2.0.3/FundAndPanic-Setup-2.0.3-x64.exe)：可选安装目录、桌面和开始菜单快捷方式。
-- [便携版 2.0.3](https://github.com/hu619340515/fund-and-panic-desktop/releases/download/v2.0.3/FundAndPanic-Portable-2.0.3-x64.exe)：直接双击运行，数据仍保存在用户目录。
-- [版本与校验文件](https://github.com/hu619340515/fund-and-panic-desktop/releases/tag/v2.0.3)。安装包未购买代码签名证书，Windows 可能显示未知发布者；请从本仓库 Release 下载并核对 SHA-256。
+- [安装版 2.0.4](https://github.com/hu619340515/fund-and-panic-desktop/releases/download/v2.0.4/FundAndPanic-Setup-2.0.4-x64.exe)：可选安装目录、桌面和开始菜单快捷方式。
+- [便携版 2.0.4](https://github.com/hu619340515/fund-and-panic-desktop/releases/download/v2.0.4/FundAndPanic-Portable-2.0.4-x64.exe)：直接双击运行，数据仍保存在用户目录。
+- [版本与校验文件](https://github.com/hu619340515/fund-and-panic-desktop/releases/tag/v2.0.4)。安装包未购买代码签名证书，Windows 可能显示未知发布者；请从本仓库 Release 下载并核对 SHA-256。
 
 关闭主窗口后驻留托盘，点击托盘恢复，托盘菜单“退出”会终止引擎。卸载不会删除用户数据。开机启动、自动刷新、刷新周期、窗口置顶和透明度可在设置中调整。
 
@@ -64,8 +64,8 @@ node packaging/smoke-live.cjs
 引擎构建脚本使用独立虚拟环境和 PyInstaller；客户端打包前验证内置 EXE 的健康检查、版本和真实多进程采集机制。`smoke-live.cjs` 必须在交易时段联网执行，与离线测试分开记录。产物在 `desktop/dist/`：
 
 ```text
-FundAndPanic-Setup-2.0.3-x64.exe
-FundAndPanic-Portable-2.0.3-x64.exe
+FundAndPanic-Setup-2.0.4-x64.exe
+FundAndPanic-Portable-2.0.4-x64.exe
 ```
 
 开发诊断 CLI 保留在 `engine/scripts/cli.py`，可以查询数据、探测来源和生成图表；正式入口为桌面程序。服务只监听 `127.0.0.1`，主进程分配随机端口，并校验实例标识、引擎版本和数据库版本。
@@ -85,6 +85,6 @@ FundAndPanic-Portable-2.0.3-x64.exe
 
 MIT，保留上游项目版权声明。基于原基金 Windows 桌面版及 A 股恐慌指数 V3 引擎整合。
 
-## 历史补全
+## 正式收盘曲线
 
-在“近一年收盘与历史估计”中点击“补全历史”，下载真实历史行情后逐日回算。绿色虚线为历史估计，明确显示覆盖率与缺项，蓝色为正式收盘；两者独立保存。详见 [2.0.3 说明](docs/release-notes-v2.0.3.md)。
+近一年区域仅展示本机保存的正式收盘记录，不显示历史估计，不补日期或数值。曲线位于指数概览下方；一级组件位于当日盘中曲线右侧。没有正式记录时显示空状态，数据不足一年时按实际日期展示。已有用户配置和数据库继续保留。详见 [2.0.4 说明](docs/release-notes-v2.0.4.md)。

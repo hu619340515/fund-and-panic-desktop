@@ -87,10 +87,13 @@ async function main() {
     daily_dates: seeded.daily_dates
   })
 
-  const env = { ...process.env, PYTHON: process.env.PYTHON || 'python' }
+  const env = { ...process.env, PYTHON: packaged ? '不存在的系统Python.exe' : 'python', PYTHONHOME: '', PYTHONPATH: '' }
+  if (packaged) env.PATH = path.join(process.env.SystemRoot, 'System32')
   delete env.ELECTRON_RUN_AS_NODE
   console.log(`图表 E2E 启动：${packaged ? executablePath : 'desktop/out'}；测试夹具目录：${userData}`)
-  const app = await electron.launch({
+  const app = /Portable-/i.test(executablePath)
+    ? await require('./launch-portable.cjs').launchPortable(executablePath, [`--user-data-dir=${userData}`, '--hidden'], env)
+    : await electron.launch({
     executablePath,
     args: [...(packaged ? [] : [path.join(root, 'desktop')]), `--user-data-dir=${userData}`, '--hidden'],
     env,
@@ -128,13 +131,23 @@ async function main() {
 
     // “当日盘中曲线”只允许显示当前上海日期的记录；无日期 IPC 的全库结果已在上方独立校验。
     await expectText(page, '#intraday-count', `${dbBeforeLaunch.intraday_current_records} 条真实记录`)
-    await expectText(page, '#daily-count', `${dbBeforeLaunch.daily_records} 条正式记录 · 0 条历史估计`)
+    await expectText(page, '#daily-count', `${dbBeforeLaunch.daily_records} 条正式记录`)
     const rendered = await page.evaluate(() => ({
       intraday: document.querySelector('#intraday-chart svg')?.getAttribute('aria-label'),
       daily: document.querySelector('#daily-chart svg')?.getAttribute('aria-label')
     }))
     assert.equal(rendered.intraday, `包含 ${dbBeforeLaunch.intraday_current_records} 条真实记录的曲线`)
-    assert.equal(rendered.daily, `包含 ${dbBeforeLaunch.daily_records} 条正式记录、0 条历史估计的曲线`)
+    assert.equal(rendered.daily, `包含 ${dbBeforeLaunch.daily_records} 条正式记录的曲线`)
+    const legacy = await page.evaluate(() => window.fundApp.panic.getHistoricalEstimates())
+    assert.equal(legacy.records.length, 1, '测试数据库必须保留一条旧估计记录')
+    assert.equal(legacy.records[0].final_panic_index, 99)
+    assert.equal(await page.locator('#history-backfill-button, #history-estimate-status, .chart-line-estimate').count(), 0)
+    assert.equal(await page.locator('#daily-chart circle').count(), dbBeforeLaunch.daily_records)
+    const annualBox = await page.locator('#annual-panel').boundingBox()
+    const componentsBox = await page.locator('#components-panel').boundingBox()
+    const marketBox = await page.locator('.market-grid').boundingBox()
+    assert.ok(annualBox.y < marketBox.y && marketBox.y < componentsBox.y, '正式曲线应在市场数据上方，一级组件在下方')
+    checks.push('正式收盘曲线上移，一级组件下移；旧估计记录不绘制，补全入口已移除')
     checks.push('当日盘中曲线记录数与当前上海日期 SQLite 记录一致；getRealtimeHistory(当前日期) 已过滤当日记录')
 
     const generated = await page.evaluate(async () => ({
@@ -157,7 +170,7 @@ async function main() {
     assert.ok(exportFiles.length >= beforeExports + 2)
     checks.push('界面两个“导出图片”按钮均通过真实 IPC 写出 PNG')
 
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].show())
+    await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]; if (w.isMinimized()) w.restore(); w.show(); w.focus() })
     await page.screenshot({ path: path.join(output, packaged ? `fixture-${mode}.png` : 'fixture.png'), fullPage: true })
   } finally {
     await app.close()
