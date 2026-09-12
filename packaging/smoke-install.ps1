@@ -1,13 +1,13 @@
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$installer = Join-Path $root 'desktop\dist\FundAndPanic-Setup-2.0.4-x64.exe'
-$portable = Join-Path $root 'desktop\dist\FundAndPanic-Portable-2.0.4-x64.exe'
+$installer = Join-Path $root 'desktop\dist\FundAndPanic-Setup-3.0.0-x64.exe'
+$portable = Join-Path $root 'desktop\dist\FundAndPanic-Portable-3.0.0-x64.exe'
 $installPath = Join-Path $root ('output\install-test\安装目录-' + [guid]::NewGuid().ToString('N'))
 if (-not [IO.Path]::GetFullPath($installPath).StartsWith($root + [IO.Path]::DirectorySeparatorChar)) { throw '安装测试目录越界' }
 $markerName = '卸载保留验收-' + [guid]::NewGuid().ToString('N') + '.txt'
 $markers = @()
-foreach ($name in @('fund-and-panic-desktop', '基金与A股风险看板')) {
+foreach ($name in @('fund-and-panic-desktop', '基金与A股风险看板', '市场风险与基金仓位')) {
   $directory = Join-Path $env:APPDATA $name
   [IO.Directory]::CreateDirectory($directory) | Out-Null
   $marker = Join-Path $directory $markerName

@@ -43,7 +43,7 @@ class TestDatabase(unittest.TestCase):
             with closing(database.connect()) as connection:
                 self.assertEqual(connection.execute(
                     "SELECT value FROM metadata WHERE key='schema_version'"
-                ).fetchone()[0], "5")
+                ).fetchone()[0], "6")
 
     def test_aggregate_never_borrows_missing_values_from_older_raw_snapshot(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -75,7 +75,7 @@ class TestDatabase(unittest.TestCase):
             self.assertNotIn("qvix_previous_close", value)
             self.assertIsNotNone(value["qvix"])
 
-    def test_legacy_database_is_backed_up_and_replaced_by_v5(self):
+    def test_legacy_database_is_backed_up_and_replaced_by_v6(self):
         with tempfile.TemporaryDirectory(prefix="恐慌指数数据库-") as directory:
             root = Path(directory)
             path = root / "旧数据库.db"
@@ -101,7 +101,7 @@ class TestDatabase(unittest.TestCase):
                     for table in tables
                     for row in connection.execute(f"PRAGMA table_info({table})")
                 }
-            self.assertEqual(schema, "5")
+            self.assertEqual(schema, "6")
             self.assertNotIn("panic_index", tables)
             self.assertNotIn("legacy_flow", all_columns)
 

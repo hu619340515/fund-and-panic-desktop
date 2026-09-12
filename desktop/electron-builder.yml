@@ -1,5 +1,5 @@
 appId: com.hu619340515.fundandpanic
-productName: 基金与A股风险看板
+productName: 市场风险与基金仓位
 copyright: Copyright © 2026 hu619340515
 asar: true
 electronDist: node_modules/electron/dist
@@ -32,6 +32,6 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: 基金与A股风险看板
+  shortcutName: 市场风险与基金仓位
 portable:
   artifactName: FundAndPanic-Portable-${version}-${arch}.${ext}

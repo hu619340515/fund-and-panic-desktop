@@ -1,64 +1,21 @@
 <!doctype html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>基金与恐慌指数</title>
-  </head>
-  <body>
-    <div class="app-shell">
-      <header class="app-header">
-        <div class="brand-block"><span class="brand-mark" aria-hidden="true"></span><div><h1>市场监测台</h1><p>基金估值 · A 股恐慌指数</p></div></div>
-        <div class="header-status"><span id="global-state" class="status-chip">正在载入</span><p id="last-refresh">最后刷新：正在准备数据…</p></div>
-        <div class="header-actions">
-          <button id="add-toggle-button" class="header-button" type="button" aria-controls="quick-add" aria-expanded="false">＋ 添加基金</button>
-          <button id="refresh-button" class="header-button" type="button">↻ 全部刷新</button>
-          <button id="settings-button" class="header-icon-button" type="button" title="设置" aria-label="设置">⚙</button>
-        </div>
-      </header>
-      <main class="workspace">
-        <section class="fund-column panel">
-          <div class="section-heading"><div><p class="eyebrow">FUND WATCHLIST</p><h2>基金估值</h2></div><div class="fund-heading-tools"><div class="summary-inline" aria-label="基金概览"><span><strong id="summary-total">0</strong> 只</span><span>今日 <strong id="summary-live">0</strong></span><span>平均 <strong id="summary-average">--</strong></span></div><button id="fund-refresh-button" class="small-button" type="button">↻ 刷新基金</button></div></div>
-          <section id="quick-add" class="quick-add" hidden><form id="add-form" class="add-form"><div class="input-group"><input id="fund-code" name="fund-code" type="text" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="输入六位基金代码" aria-describedby="add-hint" /><button id="add-button" class="button button-primary" type="submit">添加</button></div><span id="add-hint">例如 110022</span></form></section>
-          <section class="list-section"><div id="fund-list" class="fund-list"></div><div id="empty-state" class="empty-state" hidden><div class="empty-icon">＋</div><h3>还没有基金</h3><p>点击顶部“添加基金”开始监测。</p></div></section>
-        </section>
-        <section class="panic-column">
-          <section class="panel panic-panel">
-            <div class="section-heading"><div><p class="eyebrow panic-eyebrow">A-SHARE RISK</p><h2>A 股恐慌指数</h2></div><div class="panic-actions"><span id="panic-engine-status" class="status-chip">引擎连接中</span><button id="panic-refresh-button" class="small-button" type="button">↻ 刷新恐慌指数</button></div></div>
-            <div id="panic-state" class="data-state" role="status">正在载入恐慌指数…</div>
-            <div class="panic-overview">
-              <article class="score-card"><span>盘中显示值</span><div class="panic-score-row"><strong id="panic-score">--</strong><em id="panic-level">暂无数据</em></div><p id="panic-time">数据时间 --</p></article>
-              <article class="score-card close-card"><span>最近收盘值</span><div class="panic-score-row"><strong id="panic-daily">--</strong><em id="panic-daily-level">暂无数据</em></div><p id="panic-daily-time">交易日 --</p></article>
-              <div class="quality-stack"><div><span>原始值</span><strong id="panic-raw">--</strong></div><div><span>置信度</span><strong id="panic-confidence">--</strong></div><div><span>覆盖率</span><strong id="panic-coverage">--</strong></div><div><span>质量</span><strong id="panic-quality">--</strong></div></div>
-            </div>
-            <section id="annual-panel" class="chart-panel annual-panel"><div class="subsection-heading"><div><h3>近一年正式收盘曲线</h3><span id="daily-count">0 条正式记录</span></div><div class="chart-tools"><span class="legend"><i class="display-dot"></i>正式收盘</span><button id="daily-export-button" class="text-button" type="button">导出正式收盘</button></div></div><p class="chart-note">仅显示已保存的正式收盘记录；不足一年时按实际记录显示，不补日期或数值。</p><div id="daily-chart" class="chart-stage"></div></section>
-            <div class="market-grid">
-              <section class="inner-panel"><h3>市场宽度</h3><div id="breadth-details" class="metric-grid"></div></section>
-              <section class="inner-panel"><h3>衍生品</h3><div id="derivative-details" class="metric-grid"></div></section>
-              <section class="inner-panel"><h3>成交额</h3><div id="liquidity-details" class="metric-grid"></div></section>
-            </div>
-          </section>
-          <section class="chart-grid">
-            <article class="panel chart-panel"><div class="subsection-heading"><div><h3>当日盘中曲线</h3><span id="intraday-count">0 条真实记录</span></div><div class="chart-tools"><span class="legend"><i class="display-dot"></i>显示值 <i class="raw-dot"></i>原始值</span><button id="intraday-export-button" class="text-button" type="button">导出图片</button></div></div><div id="intraday-chart" class="chart-stage"></div></article>
-            <article id="components-panel" class="panel components-panel"><div class="subsection-heading"><h3>一级组件</h3><span>0–100，越高代表压力越大</span></div><div id="panic-components" class="component-grid"></div></article>
-          </section>
-          <section class="panel diagnostics-panel">
-            <div class="subsection-heading"><div><h3>数据源质量</h3><span id="source-summary">等待引擎报告</span></div><span id="engine-version">--</span></div><div id="source-list" class="source-list"></div>
-            <div id="panic-error" class="error-box" hidden><div><strong>恐慌指数暂时不可用</strong><p id="panic-error-text"></p></div><button id="panic-retry-button" class="small-button" type="button">重试</button></div>
-          </section>
-        </section>
-      </main>
-    </div>
-    <dialog id="settings-dialog" class="settings-dialog"><form id="settings-form" method="dialog">
-      <div class="dialog-heading"><div><p class="eyebrow">SETTINGS</p><h2>应用设置</h2></div><button id="settings-close" class="icon-button" type="button" aria-label="关闭">×</button></div>
-      <label class="switch-row" for="auto-refresh"><span><strong>自动刷新</strong><small>按下方周期更新基金与恐慌指数</small></span><input id="auto-refresh" type="checkbox" /></label>
-      <label class="field-label" for="refresh-interval">刷新周期</label><select id="refresh-interval"><option value="30">30 秒</option><option value="60">60 秒</option><option value="120">2 分钟</option><option value="300">5 分钟</option></select>
-      <label class="switch-row" for="launch-at-login"><span><strong>开机启动</strong><small>启动后静默驻留在系统托盘</small></span><input id="launch-at-login" type="checkbox" /></label>
-      <label class="switch-row" for="always-on-top"><span><strong>窗口置顶</strong><small>保持在其他窗口上方</small></span><input id="always-on-top" type="checkbox" /></label>
-      <label class="opacity-row" for="window-opacity"><span class="opacity-heading"><strong>窗口透明度</strong><output id="window-opacity-value" for="window-opacity">94%</output></span><input id="window-opacity" type="range" min="55" max="100" step="1" value="94%" /></label>
-      <div class="dialog-actions"><button id="settings-cancel" class="button button-secondary" type="button">取消</button><button class="button button-primary" type="submit">保存设置</button></div>
-    </form></dialog>
-    <div id="toast" class="toast" role="status" aria-live="polite"></div><script type="module" src="/src/main.ts"></script>
-  </body>
-</html>
+<head><meta charset="UTF-8" /><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>市场风险与基金仓位</title></head>
+<body><div class="app-shell">
+<header class="app-header"><div class="brand-block"><span class="brand-mark" aria-hidden="true"></span><div><h1>市场风险与基金仓位</h1><p>基金估值 · 历史验证 · 仓位观察</p></div></div><div class="header-status"><span id="global-state" class="status-chip">正在载入</span><p id="last-refresh">数据时间 --</p></div><div class="header-actions"><button id="add-toggle-button" class="header-button" type="button" aria-controls="quick-add" aria-expanded="false">＋ 添加基金</button><button id="refresh-button" class="header-button" type="button">↻ 全部刷新</button><button id="settings-button" class="header-icon-button" type="button" title="设置" aria-label="设置">⚙</button></div></header>
+<main class="workspace">
+<section class="fund-column panel"><div class="section-heading"><div><p class="eyebrow">FUND WATCHLIST</p><h2>基金估值</h2></div><div class="fund-heading-tools"><div class="summary-inline"><span><strong id="summary-total">0</strong> 只</span><span>今日 <strong id="summary-live">0</strong></span><span>平均 <strong id="summary-average">--</strong></span></div><button id="fund-refresh-button" class="small-button" type="button">↻ 刷新基金</button></div></div><section id="quick-add" class="quick-add" hidden><form id="add-form"><div class="input-group"><input id="fund-code" type="text" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="输入六位基金代码" /><button id="add-button" class="button button-primary" type="submit">添加</button></div><span id="add-hint">例如 110022</span></form></section><section class="list-section"><div id="fund-list" class="fund-list"></div><div id="empty-state" class="empty-state" hidden><div class="empty-icon">＋</div><h3>还没有基金</h3><p>点击顶部“添加基金”开始监测。</p></div></section></section>
+<section class="risk-column">
+<section class="panel risk-panel"><div class="section-heading"><div><p class="eyebrow panic-eyebrow">MARKET RISK · V4</p><h2>市场风险</h2></div><div class="risk-actions"><label for="risk-symbol">观察标的</label><select id="risk-symbol"><option value="market">全市场</option><option value="sh000300">沪深300</option><option value="sh000905">中证500</option><option value="sh000852">中证1000</option><option value="hkHSI">恒生指数</option><option value="hkHSTECH">恒生科技</option><optgroup id="fund-risk-options" label="基金关联基准"></optgroup></select><button id="risk-refresh" class="small-button" type="button">↻ 更新数据</button><button id="risk-train" class="small-button" type="button">重新训练</button></div></div><div id="risk-state" class="data-state" role="status">等待引擎数据</div>
+<div class="risk-overview"><article class="score-card"><span>恐慌状态 · 0–100</span><div class="panic-score-row"><strong id="risk-score">--</strong><em id="risk-level">暂不可用</em></div><p id="risk-time">数据时间 --</p></article><article class="score-card"><span>过热观察</span><div class="panic-score-row"><strong id="risk-overheat">--</strong></div><p>过热不等于可交易信号</p></article><article class="score-card"><span>观察与验证门槛</span><strong id="risk-gate" class="gate-value">--</strong><p id="risk-signal">等待验证</p></article></div>
+<div class="signal-grid"><article class="signal-card"><h3>超跌机会</h3><strong id="risk-opportunity">等待</strong><div id="risk-opportunity-reasons" class="reason-list">等待数据与验证</div></article><article class="signal-card"><h3>过热应对</h3><strong id="risk-heat-signal">等待</strong><div id="risk-heat-reasons" class="reason-list">等待数据与验证</div></article></div><div class="subsection-heading"><h3>三个状态分项</h3><span id="risk-components-note">原始值与历史分位分开显示</span></div><div id="risk-components" class="component-grid"></div>
+<div class="subsection-heading"><h3>未来风险矩阵</h3><span>仅展示正式发布的预测；概率对应未来最大回撤阈值</span></div><div id="forecast-state" class="chart-note"></div><div class="table-scroll"><table class="risk-table"><thead><tr><th>交易日</th><th>≥3% 概率</th><th>≥5% 概率</th><th>≥10% 概率</th><th>收益 q10</th><th>q50</th><th>q90</th></tr></thead><tbody id="forecast-body"></tbody></table></div>
+<div class="subsection-heading"><h3>历史状态</h3><span>回测历史与正式发布记录独立存放</span></div><div class="history-tabs"><button id="history-backtest" class="small-button" type="button">回测历史</button><button id="history-published" class="small-button" type="button">正式记录</button><span id="history-count"></span></div><div id="history-chart" class="chart-stage"></div>
+<div class="subsection-heading"><h3>信号与数据质量</h3></div><div id="risk-explanation" class="reason-list"></div><div id="risk-quality" class="quality-note"></div><details class="quality-details"><summary>来源与缺口诊断</summary><div id="risk-quality-details" class="reason-list"></div></details><div id="risk-validation" class="quality-note"></div><details class="auxiliary-box"><summary>盘中观察与数据源佐证</summary><p id="risk-intraday-note" class="quality-note">盘中数据待加载</p><div id="risk-intraday" class="source-list"></div><div id="risk-auxiliary" class="source-list"></div></details><div id="engine-version" class="quality-note"></div><div class="subsection-heading"><h3>后台任务</h3></div><div id="risk-jobs" class="reason-list"></div></section>
+<section class="panel allocation-panel"><div class="section-heading"><div><p class="eyebrow">PORTFOLIO · LOCAL</p><h2>持仓与目标区间</h2></div><button id="portfolio-save" class="small-button" type="button">保存持仓</button></div><div id="portfolio-state" class="data-state" role="status">等待本地持仓</div>
+<div class="portfolio-controls"><label>现金（元）<input id="portfolio-cash" type="number" min="0" step="0.01" /></label><label>风险偏好<select id="portfolio-profile"><option value="conservative">保守</option><option value="balanced">均衡</option><option value="aggressive">进取</option></select></label><button id="lot-add" class="small-button" type="button">＋ 添加批次</button></div>
+<div class="table-scroll"><table class="risk-table lots-table"><thead><tr><th>基金代码</th><th>份额</th><th>市值（元）</th><th>估值日</th><th>确认日</th><th>在途</th><th>买入费率</th><th>卖出费率</th><th>基线权重</th><th>行业</th><th>确认基准</th><th>资产类别</th><th>元数据已核实</th><th>生效日</th><th></th></tr></thead><tbody id="portfolio-lots"></tbody></table></div>
+<details class="constraints-box"><summary>仓位参数上限</summary><div id="portfolio-constraints" class="constraint-grid"></div></details>
+<details class="csv-box"><summary>中文 CSV 导入</summary><p>先预览校验，不自动保存；使用预览会替换批次列表，保留当前现金、偏好和参数。必填表头：基金代码、估值日期。手动核实的基准需同时填写类别和生效日。</p><textarea id="portfolio-csv" rows="5" placeholder="基金代码,持有份额,持有市值,估值日期,申购确认日期,在途金额,申购费率,赎回费率,基准权重,行业,基准代码,资产类别,元数据已核实,生效日期"></textarea><div class="csv-actions"><input id="portfolio-file" type="file" accept=".csv,text/csv" /><button id="csv-preview" class="small-button" type="button">预览 CSV</button><button id="csv-apply" class="small-button" type="button" disabled>使用预览并保存</button></div><div id="csv-result" class="reason-list"></div></details>
+<div class="subsection-heading"><h3>仓位建议</h3><span>仅供审阅，不会自动下单</span></div><p id="advice-summary" class="quality-note">等待数据</p><div class="table-scroll"><table class="risk-table"><thead><tr><th>基金</th><th>当前</th><th>目标区间</th><th>动作</th><th>原因 / 成本缺项</th></tr></thead><tbody id="advice-body"></tbody></table></div><div id="advice-reasons" class="reason-list"></div><details class="fund-quality-box"><summary>基金基准、净值与申赎质量 · <span id="fund-quality-count">等待数据</span></summary><div class="table-scroll"><table class="risk-table"><thead><tr><th>基金</th><th>关联基准</th><th>净值日期</th><th>暴露估计</th><th>申购下一提交日</th><th>赎回下一提交日</th><th>确认周期</th><th>质量说明与来源</th></tr></thead><tbody id="fund-quality-body"></tbody></table></div></details></section></section></main></div>
+<dialog id="settings-dialog" class="settings-dialog"><form id="settings-form" method="dialog"><div class="dialog-heading"><div><p class="eyebrow">SETTINGS</p><h2>应用设置</h2></div><button id="settings-close" class="icon-button" type="button" aria-label="关闭">×</button></div><label class="switch-row" for="auto-refresh"><span><strong>自动刷新</strong><small>定期更新基金与市场风险</small></span><input id="auto-refresh" type="checkbox" /></label><label class="field-label" for="refresh-interval">刷新周期</label><select id="refresh-interval"><option value="30">30 秒</option><option value="60">60 秒</option><option value="120">2 分钟</option><option value="300">5 分钟</option></select><label class="switch-row" for="launch-at-login"><span><strong>开机启动</strong></span><input id="launch-at-login" type="checkbox" /></label><label class="switch-row" for="always-on-top"><span><strong>窗口置顶</strong></span><input id="always-on-top" type="checkbox" /></label><label class="opacity-row" for="window-opacity"><span class="opacity-heading"><strong>窗口透明度</strong><output id="window-opacity-value">94%</output></span><input id="window-opacity" type="range" min="55" max="100" step="1" value="94" /></label><div class="dialog-actions"><button id="settings-cancel" class="button button-secondary" type="button">取消</button><button class="button button-primary" type="submit">保存设置</button></div></form></dialog><div id="toast" class="toast" role="status" aria-live="polite"></div><script type="module" src="/src/main.ts"></script></body></html>

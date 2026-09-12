@@ -270,3 +270,76 @@ body.mini-mode { overflow: hidden; pointer-events: none; }
 .chart-note { margin: 0 16px 10px; color: #8493a9; font-size: 9px; }
 .components-panel .component-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .components-panel .subsection-heading { border-top: 0; flex-wrap: wrap; }
+
+/* V4 市场风险与本地持仓 */
+.risk-column { min-width: 0; display: grid; gap: 14px; }
+.risk-panel, .allocation-panel { overflow: hidden; }
+.risk-actions, .history-tabs, .csv-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.risk-actions label { color: var(--muted); font-size: 11px; }
+.risk-actions select, .portfolio-controls select, .portfolio-controls input,
+.constraint-grid input, .lots-table input, .lots-table select, .csv-box textarea {
+  min-height: 30px; padding: 5px 8px; border: 1px solid #344053; border-radius: 6px;
+  color: #edf2fa; background: #0c1119; font: inherit;
+}
+.risk-actions select { width: 188px; max-width: 188px; }
+.risk-overview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px 16px; }
+.risk-overview .score-card { min-height: 118px; }
+.risk-overview .score-card > span, .risk-overview .score-card p { font-size: 11px; }
+.risk-overview .score-card:nth-child(2) strong { color: #efc46f; }
+.data-state-stale + .risk-overview .score-card:first-child strong,
+.data-state-stale + .risk-overview .score-card:first-child em { color: #e8c575; }
+.signal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 0 16px 14px; }
+.signal-card { min-width: 0; padding: 12px; border: 1px solid #344155; border-radius: 8px; background: #121c2a; }
+.signal-card h3 { margin: 0 0 8px; color: #aab6c9; font-size: 11px; }
+.signal-card strong { color: #dce8f7; font-size: 14px; }
+.signal-card .reason-list { padding: 5px 0 0; }
+.gate-value { display: block; margin-top: 17px; color: #a4b2ff; font-size: 14px; line-height: 1.4; }
+.risk-panel .component-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.component-card strong { font-size: 12px; }
+.component-card p { margin: 7px 0 0; color: #aab6c9; font-size: 11px; line-height: 1.5; }
+.table-scroll { max-width: 100%; overflow-x: auto; padding: 0 16px 14px; }
+.risk-table { width: 100%; border-collapse: collapse; color: #dce4ef; font-size: 11px; white-space: nowrap; }
+.risk-table th { padding: 8px; border-bottom: 1px solid #465168; color: #a8b6c9; text-align: left; font-weight: 600; }
+.risk-table td { padding: 8px; border-bottom: 1px solid #283445; line-height: 1.5; }
+.risk-table td:last-child { max-width: 450px; white-space: normal; }
+.risk-table tbody tr:hover { background: #1d2939; }
+.history-tabs { padding: 0 16px 8px; color: #8190a6; font-size: 10px; }
+.history-tabs .selected { background: #405392; border-color: #7185cf; color: white; }
+.reason-list { padding: 0 16px 12px; color: #a9b6c8; font-size: 11px; line-height: 1.65; overflow-wrap: anywhere; }
+.reason-list p { margin: 5px 0; }
+.quality-note { margin: 0; padding: 7px 16px 12px; color: #8494aa; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.risk-column .chart-note, .risk-column .data-state { font-size: 11px; line-height: 1.5; }
+.portfolio-controls { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; padding: 14px 16px; }
+.portfolio-controls label, .constraint-grid label { display: grid; gap: 5px; color: #aab6c9; font-size: 10px; }
+.portfolio-controls input { width: 130px; }
+.portfolio-controls select { min-width: 85px; }
+.lots-table input { width: 95px; min-width: 72px; font-size: 10px; }
+.lots-table select { width: 84px; font-size: 10px; }
+.lots-table input[type="checkbox"] { width: 18px; min-width: 18px; height: 18px; accent-color: #7285f3; }
+.lots-table input[data-field="industry"] { width: 100px; }
+.lots-table input[data-field="code"] { width: 82px; }
+.lots-table input[data-field="valuation_date"], .lots-table input[data-field="confirmed_date"] { width: 125px; }
+.constraints-box, .csv-box, .auxiliary-box, .fund-quality-box, .quality-details { margin: 0 16px 14px; padding: 10px; border: 1px solid #344155; border-radius: 8px; color: #acb9cd; font-size: 10px; }
+.constraints-box summary, .csv-box summary, .auxiliary-box summary, .fund-quality-box summary, .quality-details summary { cursor: pointer; font-weight: 600; }
+.quality-details .reason-list { padding: 8px 0 0; }
+.fund-quality-box .table-scroll { padding: 8px 0 0; }
+.constraint-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding-top: 12px; }
+.constraint-grid input { width: 100%; }
+.csv-box p { line-height: 1.5; }
+.csv-box textarea { display: block; width: 100%; min-height: 90px; resize: vertical; font-size: 11px; }
+.csv-actions { padding-top: 8px; }
+.csv-actions input[type="file"] { max-width: 220px; font-size: 10px; }
+.csv-box .reason-list { padding: 8px 0 0; }
+.auxiliary-box .source-list { padding: 0 0 12px; }
+.auxiliary-box .quality-note { padding-left: 0; }
+@media (max-width: 1180px) {
+  .risk-overview { grid-template-columns: 1fr 1fr; }
+  .risk-overview .score-card:last-child { grid-column: 1 / -1; }
+  .constraint-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 820px) {
+  .risk-overview { grid-template-columns: 1fr; }
+  .risk-overview .score-card:last-child { grid-column: auto; }
+  .signal-grid { grid-template-columns: 1fr; }
+}
+.mini-mode .risk-column { display: none; }

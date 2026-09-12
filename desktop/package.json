@@ -1,7 +1,7 @@
 {
   "name": "fund-and-panic-desktop",
-  "version": "2.0.4",
-  "description": "基金估值与 A 股恐慌指数 Windows 看板",
+  "version": "3.0.0",
+  "description": "市场风险与基金仓位 Windows 客户端",
   "main": "./out/main/index.js",
   "author": "hu619340515",
   "license": "MIT",

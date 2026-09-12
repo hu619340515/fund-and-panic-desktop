@@ -20,8 +20,8 @@ from uuid import uuid4
 import uvicorn
 
 
-API_VERSION = "1"
-DEFAULT_CLIENT_VERSION = "2.0.4"
+API_VERSION = "2"
+DEFAULT_CLIENT_VERSION = "3.0.0"
 
 
 def parse_args() -> argparse.Namespace:
@@ -102,6 +102,12 @@ def main() -> None:
     for stream in (sys.stdout, sys.stderr):
         if stream is not None and hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
+    if sys.argv[1:] == ["--risk-worker-self-test"]:
+        import json
+        sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
+        from a_share_panic_index.risk_v4.diagnostics import run_diagnostics
+        print(json.dumps(run_diagnostics(), ensure_ascii=False))
+        return
     if sys.argv[1:] == ["--worker-self-test"]:
         import json
         sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
@@ -118,7 +124,7 @@ def main() -> None:
     if str(script_root) not in sys.path:
         sys.path.insert(0, str(script_root))
 
-    from a_share_panic_index import APP_VERSION, DB_SCHEMA_VERSION, MODEL_VERSION
+    from a_share_panic_index import APP_VERSION, DB_SCHEMA_VERSION, RISK_MODEL_VERSION
     from a_share_panic_index.config import Settings
     from a_share_panic_index.database import Database
     from a_share_panic_index.logging_utils import configure_logging
@@ -145,7 +151,7 @@ def main() -> None:
         runtime={
             "api_version": API_VERSION,
             "app_version": APP_VERSION,
-            "engine_version": MODEL_VERSION,
+            "engine_version": RISK_MODEL_VERSION,
             "database_schema_version": int(DB_SCHEMA_VERSION),
             "client_version": args.client_version,
             "instance_id": args.instance_id or str(uuid4()),

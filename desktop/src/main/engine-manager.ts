@@ -7,8 +7,8 @@ import { randomUUID } from 'node:crypto'
 import type { EngineStatus } from '../shared/types'
 
 export type { EngineStatus } from '../shared/types'
-export const ENGINE_VERSION = '3.0-realtime'
-export const DATABASE_VERSION = 5
+export const ENGINE_VERSION = '4.0'
+export const DATABASE_VERSION = 6
 
 export interface PanicEngineClient {
   start(): Promise<EngineStatus>
@@ -16,7 +16,8 @@ export interface PanicEngineClient {
   restart(): Promise<EngineStatus>
   status(): EngineStatus
   get(path: string): Promise<unknown>
-  post(path: string): Promise<unknown>
+  post(path: string, body?: unknown): Promise<unknown>
+  put(path: string, body: unknown): Promise<unknown>
 }
 
 interface EngineManagerOptions {
@@ -45,11 +46,13 @@ export class EngineHttpError extends Error {
   }
 }
 
-export function engineRequest(url: string, method = 'GET', timeoutMs = 5000): Promise<unknown> {
+export function engineRequest(url: string, method = 'GET', timeoutMs = 5000, payload?: unknown): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const target = new URL(url)
+    const bodyText = payload === undefined ? undefined : JSON.stringify(payload)
     const req = request({ hostname: target.hostname, port: target.port,
-      path: target.pathname + target.search, method }, (response) => {
+      path: target.pathname + target.search, method,
+      headers: bodyText === undefined ? undefined : { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(bodyText) } }, (response) => {
       let body = ''
       response.setEncoding('utf8')
       response.on('data', (chunk: string) => {
@@ -58,18 +61,24 @@ export function engineRequest(url: string, method = 'GET', timeoutMs = 5000): Pr
       })
       response.on('error', reject)
       response.on('end', () => {
+        const statusCode = response.statusCode ?? 500
+        let value: Record<string, unknown>
         try {
-          const value = JSON.parse(body) as Record<string, unknown>
-          if ((response.statusCode ?? 500) >= 400) {
-            reject(new EngineHttpError(response.statusCode ?? 500, value.detail ?? '请求失败'))
-          } else resolve(value)
-        } catch { reject(new Error('引擎返回无效 JSON')) }
+          value = JSON.parse(body) as Record<string, unknown>
+        } catch {
+          reject(statusCode >= 400
+            ? new EngineHttpError(statusCode, body.slice(0, 500) || '请求失败')
+            : new Error('引擎返回无效 JSON'))
+          return
+        }
+        if (statusCode >= 400) reject(new EngineHttpError(statusCode, value?.detail ?? '请求失败'))
+        else resolve(value)
       })
     })
     const deadline = setTimeout(() => req.destroy(new Error('引擎请求超时')), timeoutMs)
     req.on('close', () => clearTimeout(deadline))
     req.on('error', reject)
-    req.end()
+    req.end(bodyText)
   })
 }
 
@@ -95,7 +104,7 @@ export class PanicEngineManager implements PanicEngineClient {
 
   constructor(private readonly options: EngineManagerOptions) {
     this.current = { state: 'stopped', baseUrl: null, error: null, version: ENGINE_VERSION,
-      databaseVersion: null, clientVersion: options.clientVersion ?? '2.0.4',
+      databaseVersion: null, clientVersion: options.clientVersion ?? '3.0.0',
       logPath: join(options.userDataPath, 'logs', 'engine-process.log') }
   }
 
@@ -213,12 +222,13 @@ export class PanicEngineManager implements PanicEngineClient {
     return this.start()
   }
 
-  private async call(path: string, method: string): Promise<unknown> {
-    if (!/^\/(?:api\/v1\/[a-z/]+|healthz)(?:\?[^#]*)?$/.test(path)) throw new Error('引擎路径不在白名单中')
+  private async call(path: string, method: string, body?: unknown): Promise<unknown> {
+    if (!/^\/(?:api\/v[12]\/[a-z/-]+|healthz)(?:\?[^#]*)?$/.test(path)) throw new Error('引擎路径不在白名单中')
     const status = this.current
     if (!status.baseUrl || status.state !== 'ready') throw new Error(status.error ?? '引擎未连接')
     try {
-      return await engineRequest(`${status.baseUrl}${path}`, method, method === 'POST' ? (path === '/api/v1/history/refresh' ? 300000 : 180000) : this.options.requestTimeoutMs ?? 10000)
+      return await engineRequest(`${status.baseUrl}${path}`, method,
+        path.startsWith('/api/v1/') && method === 'POST' ? (path === '/api/v1/history/refresh' ? 300000 : 180000) : this.options.requestTimeoutMs ?? 10000, body)
     } catch (error) {
       if (this.stopped || this.current.baseUrl !== status.baseUrl || this.current.state !== 'ready') throw error
       if (!(error instanceof EngineHttpError)) {
@@ -242,5 +252,6 @@ export class PanicEngineManager implements PanicEngineClient {
   }
 
   get(path: string): Promise<unknown> { return this.call(path, 'GET') }
-  post(path: string): Promise<unknown> { return this.call(path, 'POST') }
+  post(path: string, body?: unknown): Promise<unknown> { return this.call(path, 'POST', body) }
+  put(path: string, body: unknown): Promise<unknown> { return this.call(path, 'PUT', body) }
 }

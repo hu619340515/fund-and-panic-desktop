@@ -1,6 +1,6 @@
 {
   "name": "fund-and-panic-desktop-workspace",
-  "version": "2.0.4",
+  "version": "3.0.0",
   "private": true,
   "scripts": {
     "install:desktop": "npm --prefix desktop ci",

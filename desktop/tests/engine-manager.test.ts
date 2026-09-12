@@ -12,17 +12,20 @@ const http = require('node:http');
 const fs = require('node:fs');
 const arg = (key) => process.argv[process.argv.indexOf(key) + 1];
 fs.appendFileSync(arg('--log-directory') + '/starts.txt', process.pid + '\\n');
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
+ let body = '';
+ for await (const chunk of req) body += chunk;
  const url = new URL(req.url, 'http://localhost');
  if (url.pathname === '/api/v1/bad') { res.end('bad json'); return; }
  if (url.pathname === '/api/v1/slow') { return; }
  if (url.pathname === '/api/v1/collection') {res.statusCode=503;res.end(JSON.stringify({detail:{code:'collection_failed',message:'指数采集失败：腾讯与新浪行情不可用',retry_after_seconds:60}}));return;}
  if (url.pathname === '/api/v1/missing') {res.statusCode=404;res.end(JSON.stringify({detail:'暂无数据'}));return;}
+ if (url.pathname === '/api/v2/failure') {res.statusCode=500;res.end('Internal Server Error');return;}
  res.setHeader('Content-Type', 'application/json');
  res.end(JSON.stringify(url.pathname === '/healthz' ? {
-  ok:true, engine_version:'3.0-realtime', database_schema_version:5,
+  ok:true, engine_version:'4.0', database_schema_version:6,
   client_version:arg('--client-version'), instance_id:arg('--instance-id')
- } : {method:req.method, query:url.search, pid:process.pid, config:arg('--config'), database:arg('--database')}));
+ } : {method:req.method, query:url.search, body:body ? JSON.parse(body) : null, pid:process.pid, config:arg('--config'), database:arg('--database')}));
  if (url.pathname === '/api/v1/crash') setTimeout(() => process.exit(42), 20);
 });
 server.listen(Number(arg('--port')), '127.0.0.1');
@@ -54,6 +57,7 @@ describe('引擎实际子进程', () => {
       message: expect.stringContaining('腾讯与新浪')
     })
     await expect(manager.get('/api/v1/bad')).rejects.toThrow('无效 JSON')
+    await expect(manager.get('/api/v2/failure')).rejects.toMatchObject({statusCode:500})
     await expect(manager.get('/api/v1/slow')).rejects.toThrow('请求超时')
     expect(manager.status().state).toBe('ready')
     expect((await readFile(join(root, '用户数据/logs/starts.txt'), 'utf8')).trim().split('\n')).toHaveLength(1)
@@ -63,10 +67,12 @@ describe('引擎实际子进程', () => {
     const [first, second] = await Promise.all([manager.start(), manager.start()])
     expect(first.state).toBe('ready')
     expect(first.baseUrl).toBe(second.baseUrl)
-    expect(first.databaseVersion).toBe(5)
+    expect(first.databaseVersion).toBe(6)
     expect((await readFile(join(root, '用户数据/logs/starts.txt'), 'utf8')).trim().split('\n')).toHaveLength(1)
     expect(await manager.get('/api/v1/realtime/history?trade_date=2026-09-10&limit=7')).toMatchObject({query:'?trade_date=2026-09-10&limit=7',database:join(root,'用户数据/data/panic-index.db')})
     expect(await manager.post('/api/v1/realtime/refresh')).toMatchObject({method:'POST'})
+    expect(await manager.post('/api/v2/risk/refresh', {symbols:['market']})).toMatchObject({method:'POST',body:{symbols:['market']}})
+    expect(await manager.put('/api/v2/portfolio', {cash:100})).toMatchObject({method:'PUT',body:{cash:100}})
     await expect(manager.get('/api/v1/missing')).rejects.toThrow('404')
     expect(manager.status().state).toBe('ready')
     await manager.stop()
@@ -89,7 +95,7 @@ describe('引擎实际子进程', () => {
   })
 
   it('拒绝旧引擎版本', async () => {
-    const { manager } = await make(fixture.replace("engine_version:'3.0-realtime'", "engine_version:'2.0'"))
+    const { manager } = await make(fixture.replace("engine_version:'4.0'", "engine_version:'2.0'"))
     expect((await manager.start()).error).toContain('版本不匹配')
   })
 

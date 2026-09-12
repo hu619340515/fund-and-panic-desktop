@@ -22,6 +22,7 @@ import { createDefaultSources } from './data/sources'
 import { AppStore } from './store'
 import { PanicEngineManager } from './engine-manager'
 import { PanicService, validateDate, validateLimit, validateChartType } from './panic-service'
+import { validSymbol, validHistoryKind, validHistoryLimit, validSymbols, validPortfolio, validCsvText } from './risk-validation'
 import { createLogger } from './logger'
 import { validateSettingsPatch } from './settings'
 
@@ -82,7 +83,7 @@ function snapshot(): AppSnapshot {
     refreshing,
     lastRefreshAt: persistedState.lastRefreshAt,
     panic: persistedState.panic ?? { realtime: null, daily: null, error: null, refreshedAt: null },
-    engine: panicEngine?.status() ?? { state: 'stopped', baseUrl: null, error: null, version: '3.0-realtime', databaseVersion: null, clientVersion: app.getVersion(), logPath: join(app.getPath('userData'), 'logs', 'engine-process.log') }
+    engine: panicEngine?.status() ?? { state: 'stopped', baseUrl: null, error: null, version: '4.0', databaseVersion: null, clientVersion: app.getVersion(), logPath: join(app.getPath('userData'), 'logs', 'engine-process.log') }
   }
 }
 
@@ -109,11 +110,11 @@ function showWindow(): void {
 function updateTray(): void {
   if (!tray) return
   const template: MenuItemConstructorOptions[] = [
-    { label: '打开基金与A股风险看板', click: showWindow },
+    { label: '打开市场风险与基金仓位', click: showWindow },
     {
       label: refreshing ? '正在刷新…' : '立即刷新',
       enabled: !refreshing,
-      click: () => { void refreshFunds(); if (panicEngine.status().state === 'ready') void panicService.refresh() }
+      click: () => { void refreshFunds(); if (panicEngine.status().state === 'ready') void refreshRisk() }
     },
     { type: 'separator' },
     {
@@ -135,7 +136,7 @@ function updateTray(): void {
   const time = persistedState.lastRefreshAt
     ? new Date(persistedState.lastRefreshAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
     : '尚未刷新'
-  tray.setToolTip(`基金与A股风险看板 · ${time}`)
+  tray.setToolTip(`市场风险与基金仓位 · ${time}`)
 }
 
 function createMiniWindow(): BrowserWindow {
@@ -257,7 +258,7 @@ function createWindow(): void {
     alwaysOnTop: persistedState.settings.alwaysOnTop,
     minimizable: true,
     skipTaskbar: false,
-    title: '基金与A股风险看板',
+    title: '市场风险与基金仓位',
     icon: resourcePath('app.ico'),
     backgroundColor: '#f6f7f9',
     webPreferences: {
@@ -338,9 +339,16 @@ function scheduleRefresh(): void {
   refreshTimer = null
   if (!persistedState.settings.autoRefresh) return
   refreshTimer = setInterval(
-    () => { void refreshFunds(); if (panicEngine.status().state === 'ready') void panicService.refresh() },
+    () => { void refreshFunds(); if (panicEngine.status().state === 'ready') void refreshRisk() },
     persistedState.settings.refreshIntervalSeconds * 1000
   )
+}
+
+async function refreshRisk(): Promise<void> {
+  try { await panicEngine.post('/api/v2/risk/refresh', {
+    symbols: ['market'], fund_codes: persistedState.funds.map((fund) => fund.code)
+  }) }
+  catch (error) { log('风险后台刷新请求失败', error) }
 }
 
 async function updateSettings(rawPatch: SettingsPatch): Promise<ActionResult<AppSnapshot>> {
@@ -376,6 +384,7 @@ function registerIpc(): void {
   handle(IPC_CHANNELS.ADD_FUND, async (_event, rawCode: unknown): Promise<ActionResult<AppSnapshot>> => {
     const code = String(rawCode ?? '').trim()
     if (!/^\d{6}$/.test(code)) return { ok: false, error: '请输入六位基金代码' }
+    if (persistedState.funds.length >= 200) return { ok: false, error: '最多监测 200 只基金' }
     if (persistedState.funds.some((fund) => fund.code === code)) {
       return { ok: false, error: '该基金已经在列表中' }
     }
@@ -442,6 +451,24 @@ function registerIpc(): void {
     (_event, patch: SettingsPatch): Promise<ActionResult<AppSnapshot>> => updateSettings(patch ?? {})
   )
   handle(IPC_CHANNELS.PANIC_ENGINE_STATUS, () => panicEngine.status())
+  handle(IPC_CHANNELS.RISK_SNAPSHOT, (_event, symbol: unknown) =>
+    panicEngine.get(`/api/v2/risk/snapshot?symbol=${encodeURIComponent(validSymbol(symbol))}`))
+  handle(IPC_CHANNELS.RISK_HISTORY, (_event, symbol: unknown, kind: unknown, limit: unknown) =>
+    panicEngine.get(`/api/v2/risk/history?symbol=${encodeURIComponent(validSymbol(symbol))}&kind=${validHistoryKind(kind)}&limit=${validHistoryLimit(limit)}`))
+  handle(IPC_CHANNELS.RISK_VALIDATION, (_event, symbol: unknown) =>
+    panicEngine.get(`/api/v2/risk/validation?symbol=${encodeURIComponent(validSymbol(symbol))}`))
+  handle(IPC_CHANNELS.RISK_REFRESH, (_event, symbols: unknown) =>
+    panicEngine.post('/api/v2/risk/refresh', {
+      ...(symbols === undefined ? {} : { symbols: validSymbols(symbols) }),
+      fund_codes: persistedState.funds.map((fund) => fund.code)
+    }))
+  handle(IPC_CHANNELS.RISK_TRAIN, () => panicEngine.post('/api/v2/risk/train'))
+  handle(IPC_CHANNELS.RISK_JOBS, () => panicEngine.get('/api/v2/jobs'))
+  handle(IPC_CHANNELS.PORTFOLIO_GET, () => panicEngine.get('/api/v2/portfolio'))
+  handle(IPC_CHANNELS.PORTFOLIO_SAVE, (_event, value: unknown) => panicEngine.put('/api/v2/portfolio', validPortfolio(value)))
+  handle(IPC_CHANNELS.PORTFOLIO_PREVIEW_CSV, (_event, value: unknown) =>
+    panicEngine.post('/api/v2/portfolio/import-csv', { text: validCsvText(value) }))
+  handle(IPC_CHANNELS.RISK_ADVICE, () => panicEngine.get('/api/v2/advice'))
   handle(IPC_CHANNELS.PANIC_REALTIME, async () => panicEngine.get('/api/v1/realtime'))
   handle(IPC_CHANNELS.PANIC_DAILY, async () => panicEngine.get('/api/v1/daily/latest'))
   handle(IPC_CHANNELS.PANIC_REALTIME_HISTORY, async (_event, rawDate: unknown) => {
@@ -506,7 +533,10 @@ async function bootstrap(): Promise<void> {
   scheduleRefresh()
   void refreshFunds()
   void panicEngine.start().then((status) => {
-    if (status.state === 'ready') return panicService.refresh(persistedState.settings.autoRefresh)
+    if (status.state === 'ready') {
+      if (persistedState.settings.autoRefresh) return refreshRisk()
+      return undefined
+    }
     panicService.disconnected()
   }).catch((error) => log('引擎初始化失败', error))
 }

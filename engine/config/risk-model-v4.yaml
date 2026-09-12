@@ -1,0 +1,29 @@
+# 固定口径配置；变更窗口、方向或权重须同步实现、模型版本及重新验证。
+version: '4.0'
+core:
+  shock_days: 5
+  volatility_days: 20
+  drawdown_days: 60
+  drawdown_basis: highest_close
+  reference_years: 5
+  minimum_reference: 756
+  maximum_reference: 1260
+  weights:
+    shock: 0.3333333333333333
+    drawdown: 0.3333333333333333
+    downside: 0.3333333333333333
+forecast:
+  horizons: [5, 10, 20, 30, 50]
+  drawdown_thresholds: [3, 5, 10]
+  return_quantiles: [0.1, 0.5, 0.9]
+  minimum_train: 756
+  minimum_calibration: 252
+  embargo: 50
+  minimum_out_of_sample: 756
+  logistic_c: 0.3
+  random_seed: 20260912
+release:
+  minimum_positive: 100
+  minimum_negative: 100
+  maximum_calibration_error: 0.05
+  observation_days: 20

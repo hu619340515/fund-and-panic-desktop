@@ -62,7 +62,7 @@ class TestServerProcess(unittest.TestCase):
                 "--log-directory",
                 str(log_directory),
                 "--client-version",
-                "2.0.0-test",
+                "3.0.0-test",
                 "--instance-id",
                 instance_id,
                 "--fixture",
@@ -92,12 +92,18 @@ class TestServerProcess(unittest.TestCase):
                         time.sleep(0.1)
 
                 self.assertTrue(health["ok"])
-                self.assertEqual(health["api_version"], "1")
-                self.assertEqual(health["engine_version"], "3.0-realtime")
-                self.assertEqual(health["database_schema_version"], 5)
-                self.assertEqual(health["client_version"], "2.0.0-test")
+                self.assertEqual(health["api_version"], "2")
+                self.assertEqual(health["engine_version"], "4.0")
+                self.assertEqual(health["database_schema_version"], 6)
+                self.assertEqual(health["client_version"], "3.0.0-test")
                 self.assertEqual(health["instance_id"], instance_id)
-                self.assertEqual(health["pid"], process.pid)
+                if os.name == "nt" and health["pid"] != process.pid:
+                    # Windows venv 的 python.exe 可能为重定向器，实际服务是其子进程。
+                    parent = subprocess.check_output(["pwsh", "-NoProfile", "-Command",
+                        f"(Get-CimInstance Win32_Process -Filter 'ProcessId = {int(health['pid'])}').ParentProcessId"],text=True).strip()
+                    self.assertEqual(int(parent),process.pid)
+                else:
+                    self.assertEqual(health["pid"], process.pid)
 
                 refreshed = request_json(base_url + "/api/v1/realtime/refresh", "POST")
                 self.assertIn("realtime_panic_index", refreshed)
@@ -118,6 +124,8 @@ class TestServerProcess(unittest.TestCase):
                     ).fetchone()[0]
                 self.assertGreaterEqual(count, 1)
             finally:
+                if os.name == "nt" and process.poll() is None:
+                    subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
                 process.terminate()
                 try:
                     process.wait(timeout=10)

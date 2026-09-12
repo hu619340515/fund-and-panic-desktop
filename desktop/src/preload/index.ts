@@ -8,6 +8,20 @@ import {
 } from '@shared/types'
 
 const api: FundAppApi = {
+  risk: {
+    snapshot: (symbol) => ipcRenderer.invoke(IPC_CHANNELS.RISK_SNAPSHOT, symbol),
+    history: (symbol, kind, limit) => ipcRenderer.invoke(IPC_CHANNELS.RISK_HISTORY, symbol, kind, limit),
+    validation: (symbol) => ipcRenderer.invoke(IPC_CHANNELS.RISK_VALIDATION, symbol),
+    refresh: (symbols) => ipcRenderer.invoke(IPC_CHANNELS.RISK_REFRESH, symbols),
+    train: () => ipcRenderer.invoke(IPC_CHANNELS.RISK_TRAIN),
+    jobs: () => ipcRenderer.invoke(IPC_CHANNELS.RISK_JOBS),
+    advice: () => ipcRenderer.invoke(IPC_CHANNELS.RISK_ADVICE)
+  },
+  portfolio: {
+    get: () => ipcRenderer.invoke(IPC_CHANNELS.PORTFOLIO_GET),
+    save: (value) => ipcRenderer.invoke(IPC_CHANNELS.PORTFOLIO_SAVE, value),
+    previewCsv: (value) => ipcRenderer.invoke(IPC_CHANNELS.PORTFOLIO_PREVIEW_CSV, value)
+  },
   panic: {
     getRealtime: () => ipcRenderer.invoke(IPC_CHANNELS.PANIC_REALTIME),
     getDailyLatest: () => ipcRenderer.invoke(IPC_CHANNELS.PANIC_DAILY),

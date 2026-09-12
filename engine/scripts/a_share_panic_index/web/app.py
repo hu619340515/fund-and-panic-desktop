@@ -134,6 +134,9 @@ def create_app(
     reports_directory.mkdir(parents=True, exist_ok=True)
     collector = RealtimeCollector(settings, database, logger, fixture, collector_now)
     historical = HistoricalService(settings, database, logger)
+    from ..risk_v4.service import RiskService
+    from ..risk_v4.api import router
+    risk_service = RiskService(database, logger, fixture=bool(fixture))
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -143,9 +146,12 @@ def create_app(
             yield
         finally:
             collector.stop()
+            risk_service.close()
 
     app = FastAPI(title="A股实时恐慌指数", version="3.0", lifespan=lifespan)
     app.state.collector = collector
+    app.state.risk = risk_service
+    app.include_router(router(risk_service))
 
     @app.get("/api/v1/history")
     def historical_estimates() -> dict[str, Any]:

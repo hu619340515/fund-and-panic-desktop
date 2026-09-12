@@ -1,4 +1,4 @@
-"""SQLite V5 持久化、迁移和原子写入。"""
+"""SQLite V6：保留旧模型数据并增量迁移新风险模型表。"""
 
 from __future__ import annotations
 
@@ -112,6 +112,9 @@ CREATE TABLE IF NOT EXISTS provider_probe_results(
 """
 
 
+from .risk_v4.store import RISK_SCHEMA_SQL
+SCHEMA_SQL += RISK_SCHEMA_SQL
+
 def _dump(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
 
@@ -133,6 +136,16 @@ class Database:
 
     def _prepare(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        if self.path.exists():
+            with closing(sqlite3.connect(self.path)) as inspection:
+                version = inspection.execute("PRAGMA user_version").fetchone()[0]
+            if version > int(DB_SCHEMA_VERSION):
+                raise ValueError("数据库版本比当前客户端更新，拒绝降级写入")
+            if version < int(DB_SCHEMA_VERSION) and self._is_v5():
+                self.backup_directory.mkdir(parents=True, exist_ok=True)
+                stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+                self.last_backup = self.backup_directory / f"{self.path.stem}-pre-v6-{stamp}{self.path.suffix}"
+                self._backup_before_migration(self.last_backup)
         if self.path.exists() and not self._is_v5():
             self.backup_directory.mkdir(parents=True, exist_ok=True)
             stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
@@ -187,7 +200,7 @@ class Database:
                 row = connection.execute(
                     "SELECT value FROM metadata WHERE key='schema_version'"
                 ).fetchone()
-                return bool(row and row[0] == DB_SCHEMA_VERSION)
+                return bool(row and row[0] in {"5", DB_SCHEMA_VERSION})
         except sqlite3.Error:
             return False
 
